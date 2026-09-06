@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -243,7 +244,15 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ModeMenu(t, state.mode, !loading, onMode) }
             when (state.mode) {
-                LookupMode.ROW_SMARTPHONE -> item { Field(t.text("lookup-imei-label"), state.rowImei, placeholder = t.text("lookup-imei-placeholder"), onChange = onImei) }
+                LookupMode.ROW_SMARTPHONE -> item {
+                    Field(
+                        t.text("lookup-imei-label"),
+                        state.rowImei,
+                        placeholder = t.text("lookup-imei-placeholder"),
+                        keyboardType = KeyboardType.Number,
+                        onChange = { onImei(it.filter(Char::isDigit)) },
+                    )
+                }
                 LookupMode.RETCN_SMARTPHONE -> retcnItems(t, state, onRetcn)
                 LookupMode.TABLET -> item { Field(t.text("tablet-sn-label"), state.tabletSerialNumber, onChange = onTablet) }
                 LookupMode.BY_MODEL -> modelItems(t, state, onModelName, onModel, onCategory)
@@ -259,7 +268,12 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
 private fun androidx.compose.foundation.lazy.LazyListScope.retcnItems(t: Translator, state: FirmwareUiState, onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit) {
     val f = state.retcn
     item { Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium) }
-    item { Field(t.text("lookup-imei-label"), f.imei) { value -> onUpdate { it.copy(imei = value) } } }; item { Field(t.text("retcn-sn-label"), f.serialNumber) { v -> onUpdate { it.copy(serialNumber = v) } } }; item { Field(t.text("retcn-model-label"), f.model) { v -> onUpdate { it.copy(model = v) } } }; item { Field(t.text("retcn-carrier-label"), f.carrier) { v -> onUpdate { it.copy(carrier = v) } } }; item { Field(t.text("retcn-fingerprint-label"), f.fingerprint) { v -> onUpdate { it.copy(fingerprint = v) } } }
+    item {
+        Field(t.text("lookup-imei-label"), f.imei, keyboardType = KeyboardType.Number) { value ->
+            onUpdate { it.copy(imei = value.filter(Char::isDigit)) }
+        }
+    }
+    item { Field(t.text("retcn-sn-label"), f.serialNumber) { v -> onUpdate { it.copy(serialNumber = v) } } }; item { Field(t.text("retcn-model-label"), f.model) { v -> onUpdate { it.copy(model = v) } } }; item { Field(t.text("retcn-carrier-label"), f.carrier) { v -> onUpdate { it.copy(carrier = v) } } }; item { Field(t.text("retcn-fingerprint-label"), f.fingerprint) { v -> onUpdate { it.copy(fingerprint = v) } } }
     item { PlatformMenu(t, f.platform) { v -> onUpdate { it.copy(platform = v) } } }
     if (f.platform == Platform.QUALCOMM) item { Field(t.text("retcn-fsg-label"), f.fsgVersion) { v -> onUpdate { it.copy(fsgVersion = v) } } } else item { SimMenu(t, f.simCount) { v -> onUpdate { it.copy(simCount = v) } } }
 }
@@ -272,7 +286,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.modelItems(t: Transla
 }
 
 @Composable
-private fun Field(label: String, value: String, placeholder: String? = null, onChange: (String) -> Unit) {
+private fun Field(
+    label: String,
+    value: String,
+    placeholder: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    onChange: (String) -> Unit,
+) {
     val focusManager = LocalFocusManager.current
     OutlinedTextField(
         value = value,
@@ -281,7 +301,7 @@ private fun Field(label: String, value: String, placeholder: String? = null, onC
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
     )
 }
