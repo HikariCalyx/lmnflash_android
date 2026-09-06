@@ -39,6 +39,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -57,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -277,7 +280,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.modelItems(t: Transla
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
     val manager = context.getSystemService(LocaleManager::class.java)
     var expanded by remember { mutableStateOf(false) }
-    TextButton(onClick = { expanded = true }) { Text("Language") }
+    IconButton(onClick = { expanded = true }) {
+        Icon(
+            painter = painterResource(R.drawable.ic_language),
+            contentDescription = context.getString(R.string.language_menu_description),
+        )
+    }
     DropdownMenu(expanded, { expanded = false }) {
         DropdownMenuItem({ Text(context.getString(R.string.language_system_default)) }, { manager.applicationLocales = LocaleList.getEmptyLocaleList(); expanded = false })
         AppLanguage.entries.forEach { language -> DropdownMenuItem({ Text(language.nativeName) }, { manager.applicationLocales = LocaleList.forLanguageTags(language.tag); expanded = false }) }
