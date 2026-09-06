@@ -110,10 +110,19 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
         state = state.copy(login = LoginState.Manual(login.url, login.expectedState, notice))
     }
 
-    fun submitLoginCallback(callback: String, expectedState: String) {
+    fun submitLoginCallback(callback: String) = submitLoginCallback(callback, showError = true)
+
+    fun submitExternalLoginCallback(callback: String) = submitLoginCallback(callback, showError = false)
+
+    private fun submitLoginCallback(callback: String, showError: Boolean) {
+        val expectedState = when (val login = state.login) {
+            is LoginState.Web -> login.expectedState
+            is LoginState.Manual -> login.expectedState
+            else -> return
+        }
         val clientUuid = credentials.clientUuid()
         runCatching { repository.parseLoginCallback(callback, expectedState) }
-            .onFailure { state = state.copy(login = LoginState.Error(it.userMessage())) }
+            .onFailure { error -> if (showError) state = state.copy(login = LoginState.Error(error.userMessage())) }
             .onSuccess { parsed ->
                 val session = parsed.copy(clientUuid = clientUuid)
                 viewModelScope.launch {

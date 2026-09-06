@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,16 +79,54 @@ import com.hikaricalyx.lmnflash.l10n.Translator
 import com.hikaricalyx.lmnflash.l10n.rememberTranslator
 import com.hikaricalyx.lmnflash.ui.theme.LMNFlashTheme
 
+private data class SoftwareFixCallback(val id: Long, val uri: String)
+
 class MainActivity : ComponentActivity() {
+    private var callbackSequence = 0L
+    private var callbackEvent by mutableStateOf<SoftwareFixCallback?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        receiveSoftwareFixCallback(intent)
         enableEdgeToEdge()
-        setContent { LMNFlashTheme { Surface(Modifier.fillMaxSize()) { FirmwareLookupApp() } } }
+        setContent {
+            LMNFlashTheme {
+                Surface(Modifier.fillMaxSize()) {
+                    FirmwareLookupApp(callbackEvent) { callbackId ->
+                        if (callbackEvent?.id == callbackId) callbackEvent = null
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        receiveSoftwareFixCallback(intent)
+    }
+
+    private fun receiveSoftwareFixCallback(intent: Intent) {
+        val uri = intent.data ?: run {
+            setIntent(intent)
+            return
+        }
+        if (intent.action != Intent.ACTION_VIEW || !uri.scheme.equals("softwarefix", true)) {
+            setIntent(intent)
+            return
+        }
+        intent.data = null
+        setIntent(intent)
+        if (uri.host.equals("callback", true)) {
+            callbackEvent = SoftwareFixCallback(++callbackSequence, uri.toString())
+        }
     }
 }
 
 @Composable
-private fun FirmwareLookupApp() {
+private fun FirmwareLookupApp(
+    externalCallback: SoftwareFixCallback?,
+    onExternalCallbackConsumed: (Long) -> Unit,
+) {
     val context = LocalContext.current
     val t = rememberTranslator()
     val factory = remember(context) {
@@ -98,11 +137,17 @@ private fun FirmwareLookupApp() {
     }
     val viewModel: FirmwareLookupViewModel = viewModel(factory = factory)
     val state = viewModel.state
+    LaunchedEffect(externalCallback?.id) {
+        externalCallback?.let { callback ->
+            viewModel.submitExternalLoginCallback(callback.uri)
+            onExternalCallbackConsumed(callback.id)
+        }
+    }
     when (val login = state.login) {
         LoginState.LoggedOut -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
         LoginState.Loading -> CenteredProgress(t.text("login-fetching"))
-        is LoginState.Web -> WebLogin(t, login.url, { viewModel.submitLoginCallback(it, login.expectedState) }, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
-        is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, { viewModel.submitLoginCallback(it, login.expectedState) }, viewModel::cancelLogin)
+        is LoginState.Web -> WebLogin(t, login.url, viewModel::submitLoginCallback, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
+        is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
         is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
         is LoginState.LoggedIn -> LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, viewModel::logout) { copyToClipboard(context, it) }
     }
