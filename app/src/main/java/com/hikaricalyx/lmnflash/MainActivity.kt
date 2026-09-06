@@ -25,11 +25,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,9 +60,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.core.net.toUri
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.core.net.toUri
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -224,7 +230,7 @@ private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () 
         if (notice != null) item { Text(t.error(notice), style = MaterialTheme.typography.bodyMedium) }
         item { Text(t.text("login-url-label"), fontWeight = FontWeight.SemiBold) }; item { Text(url, style = MaterialTheme.typography.bodySmall, maxLines = 5, overflow = TextOverflow.Ellipsis) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = onCopy) { Text(t.text("login-copy-url")) }; OutlinedButton(onClick = onBrowser) { Text(t.text("login-open-browser")) } } }
-        item { OutlinedTextField(callback, { callback = it }, Modifier.fillMaxWidth(), label = { Text(t.text("login-manual-placeholder")) }, minLines = 3) }
+        item { Field(t.text("login-manual-placeholder"), callback, onChange = { callback = it }) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onSubmit(callback) }) { Text(t.text("login-submit")) }; OutlinedButton(onClick = onCancel) { Text(t.text("login-cancel")) } } }
     }
 }
@@ -234,7 +240,7 @@ private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () 
 private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
     val loading = state.lookupStatus is LookupStatus.Loading
     Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, actions = { LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ModeMenu(t, state.mode, !loading, onMode) }
             when (state.mode) {
                 LookupMode.ROW_SMARTPHONE -> item { Field(t.text("lookup-imei-label"), state.rowImei, placeholder = t.text("lookup-imei-placeholder"), onChange = onImei) }
@@ -253,7 +259,7 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
 private fun androidx.compose.foundation.lazy.LazyListScope.retcnItems(t: Translator, state: FirmwareUiState, onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit) {
     val f = state.retcn
     item { Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium) }
-    item { Field(t.text("lookup-imei-label"), f.imei) { value -> onUpdate { it.copy(imei = value) } } }; item { Field(t.text("retcn-sn-label"), f.serialNumber) { v -> onUpdate { it.copy(serialNumber = v) } } }; item { Field(t.text("retcn-model-label"), f.model) { v -> onUpdate { it.copy(model = v) } } }; item { Field(t.text("retcn-carrier-label"), f.carrier) { v -> onUpdate { it.copy(carrier = v) } } }; item { Field(t.text("retcn-fingerprint-label"), f.fingerprint, 2) { v -> onUpdate { it.copy(fingerprint = v) } } }
+    item { Field(t.text("lookup-imei-label"), f.imei) { value -> onUpdate { it.copy(imei = value) } } }; item { Field(t.text("retcn-sn-label"), f.serialNumber) { v -> onUpdate { it.copy(serialNumber = v) } } }; item { Field(t.text("retcn-model-label"), f.model) { v -> onUpdate { it.copy(model = v) } } }; item { Field(t.text("retcn-carrier-label"), f.carrier) { v -> onUpdate { it.copy(carrier = v) } } }; item { Field(t.text("retcn-fingerprint-label"), f.fingerprint) { v -> onUpdate { it.copy(fingerprint = v) } } }
     item { PlatformMenu(t, f.platform) { v -> onUpdate { it.copy(platform = v) } } }
     if (f.platform == Platform.QUALCOMM) item { Field(t.text("retcn-fsg-label"), f.fsgVersion) { v -> onUpdate { it.copy(fsgVersion = v) } } } else item { SimMenu(t, f.simCount) { v -> onUpdate { it.copy(simCount = v) } } }
 }
@@ -265,7 +271,20 @@ private fun androidx.compose.foundation.lazy.LazyListScope.modelItems(t: Transla
     if (f.requiredForModel == f.model.trim()) items(f.requiredParameters, key = { it }) { key -> Field(key.label(t), f.parameterValues[key].orEmpty()) { v -> onUpdate { it.copy(parameterValues = it.parameterValues + (key to v)) } } }
 }
 
-@Composable private fun Field(label: String, value: String, minLines: Int = 1, placeholder: String? = null, onChange: (String) -> Unit) = OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), label = { Text(label) }, placeholder = placeholder?.let { { Text(it) } }, minLines = minLines)
+@Composable
+private fun Field(label: String, value: String, placeholder: String? = null, onChange: (String) -> Unit) {
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+    )
+}
 @Composable private fun PlatformMenu(t: Translator, platform: Platform, onSelect: (Platform) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("retcn-platform-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(platform.label(t)) }; DropdownMenu(expanded, { expanded = false }) { Platform.entries.forEach { item -> DropdownMenuItem({ Text(item.label(t)) }, { onSelect(item); expanded = false }) } } } }
 @Composable private fun SimMenu(t: Translator, count: Int, onSelect: (Int) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("retcn-sim-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(if (count == 2) t.text("sim-dual") else t.text("sim-single")) }; DropdownMenu(expanded, { expanded = false }) { DropdownMenuItem({ Text(t.text("sim-single")) }, { onSelect(1); expanded = false }); DropdownMenuItem({ Text(t.text("sim-dual")) }, { onSelect(2); expanded = false }) } } }
 @Composable private fun CategoryMenu(t: Translator, category: DeviceCategory, onSelect: (DeviceCategory) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("by-model-category-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(category.label(t)) }; DropdownMenu(expanded, { expanded = false }) { DeviceCategory.entries.forEach { item -> DropdownMenuItem({ Text(item.label(t)) }, { onSelect(item); expanded = false }) } } } }
@@ -284,6 +303,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.modelItems(t: Transla
         Icon(
             painter = painterResource(R.drawable.ic_language),
             contentDescription = context.getString(R.string.language_menu_description),
+            tint = MaterialTheme.colorScheme.primary,
         )
     }
     DropdownMenu(expanded, { expanded = false }) {
