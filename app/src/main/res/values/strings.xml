@@ -1,3 +1,16 @@
 <resources>
-    <string name="app_name">LMNFlash</string>
+    <string name="app_name">LMN Flash</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_unavailable">Per-app language selection requires Android 13 or later.</string>
+    <string name="language_menu_description">App language</string>
+    <string name="login_manual">Log in manually</string>
+    <string name="login_manual_short">Manual login</string>
+    <string name="logout">Log out</string>
+    <string name="lookup_type">Lookup type</string>
+    <string name="lookup_imei_placeholder">14- or 15-digit IMEI</string>
+    <string name="retcn_heading">RETCN Smartphone</string>
+    <string name="lookup_field_format">%1$s: %2$s</string>
+    <string name="empty_value">—</string>
+    <string name="login_expired">Your Lenovo session expired. Log in again to retry.</string>
+    <string name="unexpected_error">An unexpected error occurred</string>
 </resources>

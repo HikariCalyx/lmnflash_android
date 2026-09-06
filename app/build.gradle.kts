@@ -31,6 +31,9 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        getByName("main").assets.srcDir("../l10n")
+    }
 }
 
 dependencies {
