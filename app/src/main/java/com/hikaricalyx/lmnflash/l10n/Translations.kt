@@ -82,7 +82,7 @@ class Translator private constructor(private val messages: Map<String, String>) 
 
 @Composable
 fun rememberTranslator(): Translator {
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0]
     val context = androidx.compose.ui.platform.LocalContext.current
     return remember(context, locale.toLanguageTag()) { Translator.load(context, locale) }
 }
