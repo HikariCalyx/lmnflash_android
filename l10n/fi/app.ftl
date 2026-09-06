@@ -151,3 +151,17 @@ decrypt-failed-files = Epäonnistuneet tiedostot
 logout = Kirjaudu ulos
 login-manual = Kirjaudu sisään manuaalisesti
 login-manual-short = Manuaalinen kirjautuminen
+
+history-button = Hakuhistoria
+history-title = Hakuhistoria
+history-empty = Ei vielä onnistuneita hakuja.
+history-clear = Tyhjennä
+history-close = Sulje
+history-query = Haku: { $query }
+history-recorded = Tallennettu: { $time }
+history-details = Näytä tiedot
+history-psn = PSN
+history-manage = Hallitse
+history-remove = Poista ({ $count })
+history-done = Valmis
+history-select-all = Valitse kaikki

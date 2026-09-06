@@ -151,3 +151,17 @@ decrypt-failed-files = Mislykkede filer
 logout = Log ud
 login-manual = Log ind manuelt
 login-manual-short = Manuel login
+
+history-button = Opslagshistorik
+history-title = Opslagshistorik
+history-empty = Ingen vellykkede opslag endnu.
+history-clear = Ryd
+history-close = Luk
+history-query = Forespørgsel: { $query }
+history-recorded = Gemt: { $time }
+history-details = Vis detaljer
+history-psn = PSN
+history-manage = Administrer
+history-remove = Fjern ({ $count })
+history-done = Udført
+history-select-all = Vælg alle

@@ -151,3 +151,17 @@ decrypt-failed-files = 解密失败的文件
 logout = 退出登录
 login-manual = 手动登录
 login-manual-short = 手动登录
+
+history-button = 查询历史
+history-title = 查询历史
+history-empty = 暂无成功查询。
+history-clear = 清除
+history-close = 关闭
+history-query = 查询：{ $query }
+history-recorded = 已保存：{ $time }
+history-details = 显示详情
+history-psn = PSN
+history-manage = 管理
+history-remove = 移除（{ $count }）
+history-done = 完成
+history-select-all = 全选

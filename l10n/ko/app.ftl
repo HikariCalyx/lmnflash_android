@@ -151,3 +151,17 @@ decrypt-failed-files = 복호화 실패 파일
 logout = 로그아웃
 login-manual = 수동 로그인
 login-manual-short = 수동 로그인
+
+history-button = 조회 기록
+history-title = 조회 기록
+history-empty = 아직 성공한 조회가 없습니다.
+history-clear = 지우기
+history-close = 닫기
+history-query = 조회: { $query }
+history-recorded = 저장됨: { $time }
+history-details = 세부 정보 표시
+history-psn = PSN
+history-manage = 관리
+history-remove = 제거 ({ $count })
+history-done = 완료
+history-select-all = 모두 선택

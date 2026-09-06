@@ -151,3 +151,17 @@ decrypt-failed-files = Файлы с ошибками
 logout = Выйти
 login-manual = Войти вручную
 login-manual-short = Ручной вход
+
+history-button = История запросов
+history-title = История запросов
+history-empty = Успешных запросов пока нет.
+history-clear = Очистить
+history-close = Закрыть
+history-query = Запрос: { $query }
+history-recorded = Сохранено: { $time }
+history-details = Показать подробности
+history-psn = PSN
+history-manage = Управление
+history-remove = Удалить ({ $count })
+history-done = Готово
+history-select-all = Выбрать все

@@ -151,3 +151,17 @@ decrypt-failed-files = Mislukte bestanden
 logout = Uitloggen
 login-manual = Handmatig aanmelden
 login-manual-short = Handmatig aanmelden
+
+history-button = Zoekgeschiedenis
+history-title = Zoekgeschiedenis
+history-empty = Nog geen succesvolle zoekopdrachten.
+history-clear = Wissen
+history-close = Sluiten
+history-query = Zoekopdracht: { $query }
+history-recorded = Opgeslagen: { $time }
+history-details = Details weergeven
+history-psn = PSN
+history-manage = Beheren
+history-remove = Verwijderen ({ $count })
+history-done = Gereed
+history-select-all = Alles selecteren

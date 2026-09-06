@@ -151,3 +151,17 @@ decrypt-failed-files = File non riusciti
 logout = Esci
 login-manual = Accedi manualmente
 login-manual-short = Accesso manuale
+
+history-button = Cronologia ricerche
+history-title = Cronologia ricerche
+history-empty = Nessuna ricerca riuscita.
+history-clear = Cancella
+history-close = Chiudi
+history-query = Richiesta: { $query }
+history-recorded = Salvato: { $time }
+history-details = Mostra dettagli
+history-psn = PSN
+history-manage = Gestisci
+history-remove = Rimuovi ({ $count })
+history-done = Fatto
+history-select-all = Seleziona tutto

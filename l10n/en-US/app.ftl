@@ -150,3 +150,20 @@ decrypt-failed-files = Failed files
 logout = Log out
 login-manual = Log in manually
 login-manual-short = Manual login
+
+history-button = Lookup history
+history-title = Lookup history
+history-empty = No successful lookups yet.
+history-clear = Clear
+history-close = Close
+history-query = Query: { $query }
+history-recorded = Saved: { $time }
+history-details = Show details
+
+history-psn = PSN
+
+history-manage = Manage
+history-remove = Remove ({ $count })
+history-done = Done
+
+history-select-all = Select All

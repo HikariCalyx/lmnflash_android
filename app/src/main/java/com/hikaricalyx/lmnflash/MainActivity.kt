@@ -16,8 +16,10 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +39,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -57,6 +60,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +84,7 @@ import com.hikaricalyx.lmnflash.firmware.FirmwareInfo
 import com.hikaricalyx.lmnflash.firmware.FirmwareLookupViewModel
 import com.hikaricalyx.lmnflash.firmware.FirmwareUiState
 import com.hikaricalyx.lmnflash.firmware.LoginState
+import com.hikaricalyx.lmnflash.firmware.LookupHistoryRecord
 import com.hikaricalyx.lmnflash.firmware.LookupMode
 import com.hikaricalyx.lmnflash.firmware.LookupResult
 import com.hikaricalyx.lmnflash.firmware.LookupStatus
@@ -147,6 +152,7 @@ private fun FirmwareLookupApp(
     }
     val viewModel: FirmwareLookupViewModel = viewModel(factory = factory)
     val state = viewModel.state
+    var showHistory by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(externalCallback?.id) {
         externalCallback?.let { callback ->
             viewModel.submitExternalLoginCallback(callback.uri)
@@ -159,7 +165,14 @@ private fun FirmwareLookupApp(
         is LoginState.Web -> WebLogin(t, login.url, viewModel::submitLoginCallback, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
         is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
         is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
-        is LoginState.LoggedIn -> LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, viewModel::logout) { copyToClipboard(context, it) }
+        is LoginState.LoggedIn -> if (showHistory) {
+            HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
+                viewModel.restoreHistory(record)
+                showHistory = false
+            }) { showHistory = false }
+        } else {
+            LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
+        }
     }
 }
 
@@ -238,9 +251,14 @@ private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
+private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onShowHistory: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
     val loading = state.lookupStatus is LookupStatus.Loading
-    Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, actions = { LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
+    val lookupEnabled = !loading && when (state.mode) {
+        LookupMode.ROW_SMARTPHONE -> isValidImei(state.rowImei)
+        LookupMode.RETCN_SMARTPHONE -> isValidImei(state.retcn.imei)
+        LookupMode.TABLET, LookupMode.BY_MODEL -> true
+    }
+    Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, actions = { HistoryButton(t, onShowHistory); LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ModeMenu(t, state.mode, !loading, onMode) }
             when (state.mode) {
@@ -250,6 +268,7 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
                         state.rowImei,
                         placeholder = t.text("lookup-imei-placeholder"),
                         keyboardType = KeyboardType.Number,
+                        isError = hasInvalidImeiChecksum(state.rowImei),
                         onChange = { onImei(it.filter(Char::isDigit)) },
                     )
                 }
@@ -257,7 +276,15 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
                 LookupMode.TABLET -> item { Field(t.text("tablet-sn-label"), state.tabletSerialNumber, onChange = onTablet) }
                 LookupMode.BY_MODEL -> modelItems(t, state, onModelName, onModel, onCategory)
             }
-            item { Button(onClick = onLookup, enabled = !loading, modifier = Modifier.fillMaxWidth()) { if (loading) { CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }; Text(if (loading) t.text("lookup-fetching") else t.text("lookup-button")) } }
+            item {
+                Button(onClick = onLookup, enabled = lookupEnabled, modifier = Modifier.fillMaxWidth()) {
+                    if (loading) {
+                        CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (loading) t.text("lookup-fetching") else t.text("lookup-button"))
+                }
+            }
             item { LookupStatusView(t, state.lookupStatus, onCopy) }; item { Spacer(Modifier.height(16.dp)) }
         }
     }
@@ -269,7 +296,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.retcnItems(t: Transla
     val f = state.retcn
     item { Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium) }
     item {
-        Field(t.text("lookup-imei-label"), f.imei, keyboardType = KeyboardType.Number) { value ->
+        Field(
+            t.text("lookup-imei-label"),
+            f.imei,
+            keyboardType = KeyboardType.Number,
+            isError = hasInvalidImeiChecksum(f.imei),
+        ) { value ->
             onUpdate { it.copy(imei = value.filter(Char::isDigit)) }
         }
     }
@@ -291,6 +323,7 @@ private fun Field(
     value: String,
     placeholder: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
     onChange: (String) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -300,11 +333,16 @@ private fun Field(
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
+        isError = isError,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
     )
 }
+
+private fun isValidImei(imei: String): Boolean = com.hikaricalyx.lmnflash.firmware.validateImei(imei).isSuccess
+private fun hasInvalidImeiChecksum(imei: String): Boolean = imei.length == 15 && !isValidImei(imei)
+
 @Composable private fun PlatformMenu(t: Translator, platform: Platform, onSelect: (Platform) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("retcn-platform-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(platform.label(t)) }; DropdownMenu(expanded, { expanded = false }) { Platform.entries.forEach { item -> DropdownMenuItem({ Text(item.label(t)) }, { onSelect(item); expanded = false }) } } } }
 @Composable private fun SimMenu(t: Translator, count: Int, onSelect: (Int) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("retcn-sim-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(if (count == 2) t.text("sim-dual") else t.text("sim-single")) }; DropdownMenu(expanded, { expanded = false }) { DropdownMenuItem({ Text(t.text("sim-single")) }, { onSelect(1); expanded = false }); DropdownMenuItem({ Text(t.text("sim-dual")) }, { onSelect(2); expanded = false }) } } }
 @Composable private fun CategoryMenu(t: Translator, category: DeviceCategory, onSelect: (DeviceCategory) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Text(t.text("by-model-category-label"), style = MaterialTheme.typography.labelLarge); OutlinedButton({ expanded = true }, Modifier.fillMaxWidth()) { Text(category.label(t)) }; DropdownMenu(expanded, { expanded = false }) { DeviceCategory.entries.forEach { item -> DropdownMenuItem({ Text(item.label(t)) }, { onSelect(item); expanded = false }) } } } }
@@ -314,6 +352,84 @@ private fun Field(
 @Composable private fun CnTabletResult(t: Translator, info: CnTabletInfo, onCopy: (String) -> Unit) = ResultCard(t, listOf("cn-product-name" to info.productName, "cn-product-model" to info.productModel, "cn-market-name" to info.marketName, "cn-mtm-compat" to info.compatibleMtm, "cn-latest-version" to info.latestVersion, "cn-id" to info.resourceId, "fw-publish-date" to info.publishDate, "fw-file-name" to info.fileName, "fw-file-size" to info.fileSize), listOf("fw-copy-uri" to info.downloadUri, "tablet-copy-password" to info.unzipPassword), onCopy)
 @Composable private fun ResultCard(t: Translator, fields: List<Pair<String, String>>, actions: List<Pair<String, String>>, onCopy: (String) -> Unit) { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { SelectionContainer { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { fields.forEach { (label, value) -> Text("${t.text(label)}: ${value.ifBlank { "—" }}", style = MaterialTheme.typography.bodyMedium) } } }; HorizontalDivider(Modifier.padding(vertical = 6.dp)); actions.forEach { (label, value) -> OutlinedButton({ onCopy(value) }, Modifier.fillMaxWidth(), enabled = value.isNotBlank()) { Text(t.text(label)) } } } } }
 @Composable private fun ErrorText(message: String) = Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+
+@Composable
+private fun HistoryButton(t: Translator, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            painter = painterResource(R.drawable.ic_history),
+            contentDescription = t.text("history-button"),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onRemove: (Set<String>) -> Unit, onRestore: (LookupHistoryRecord) -> Unit, onBack: () -> Unit) {
+    var managing by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    fun exitManageMode() { managing = false; selectedIds = emptySet() }
+    BackHandler { if (managing) exitManageMode() else onBack() }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(t.text("history-title")) },
+                actions = {
+                    if (managing) {
+                        TextButton(onClick = { onRemove(selectedIds); exitManageMode() }, enabled = selectedIds.isNotEmpty()) { Text(t.text("history-remove", "count" to selectedIds.size)) }
+                        TextButton(onClick = { selectedIds = history.mapTo(linkedSetOf()) { it.id } }, enabled = selectedIds.size < history.size) { Text(t.text("history-select-all")) }
+                    } else {
+                        if (history.isNotEmpty()) TextButton(onClick = { managing = true }) { Text(t.text("history-manage")) }
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        if (history.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) { Text(t.text("history-empty"), style = MaterialTheme.typography.bodyMedium) }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item { Spacer(Modifier.height(4.dp)) }
+                items(history, key = LookupHistoryRecord::id) { record ->
+                    HistoryRecord(t, record, managing, record.id in selectedIds) {
+                        if (managing) selectedIds = selectedIds.toggle(record.id) else onRestore(record)
+                    }
+                }
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRecord(t: Translator, record: LookupHistoryRecord, managing: Boolean, selected: Boolean, onClick: () -> Unit) {
+    val modifier = Modifier.fillMaxWidth().then(if (managing) Modifier else Modifier.clickable(onClick = onClick))
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(record.mode.label(t), style = MaterialTheme.typography.titleMedium)
+                if (record.identifier.isNotBlank()) Text("${record.identifierLabel(t)}: ${record.identifier}", style = MaterialTheme.typography.bodyMedium)
+                Text("${t.text("fw-model-name")}: ${record.model.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
+                Text("${record.carrierOrCountryLabel(t)}: ${record.carrierOrCountry.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
+            }
+            if (managing) Checkbox(checked = selected, onCheckedChange = { onClick() })
+        }
+    }
+}
+
+private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this - id else this + id
+
+private fun LookupHistoryRecord.identifierLabel(t: Translator): String = if (mode == LookupMode.TABLET) t.text("history-psn") else t.text("lookup-imei-label")
+private fun LookupHistoryRecord.carrierOrCountryLabel(t: Translator): String = if (mode == LookupMode.BY_MODEL) t.text("by-model-country-label") else t.text("fw-carrier")
+private fun String.displayHistoryValue(): String = ifBlank { "—" }
 
 @Composable private fun LanguageMenu(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return

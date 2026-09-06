@@ -151,3 +151,17 @@ decrypt-failed-files = 復号に失敗したファイル
 logout = ログアウト
 login-manual = 手動でログイン
 login-manual-short = 手動ログイン
+
+history-button = 検索履歴
+history-title = 検索履歴
+history-empty = 成功した検索はまだありません。
+history-clear = 消去
+history-close = 閉じる
+history-query = 照会: { $query }
+history-recorded = 保存: { $time }
+history-details = 詳細を表示
+history-psn = PSN
+history-manage = 管理
+history-remove = 削除 ({ $count })
+history-done = 完了
+history-select-all = すべて選択
