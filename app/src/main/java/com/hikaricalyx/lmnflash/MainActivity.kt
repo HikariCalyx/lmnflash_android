@@ -135,6 +135,9 @@ private fun LoginWebView(url: String, onCallback: (String) -> Unit, modifier: Mo
     WebView(context).apply {
         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         settings.javaScriptEnabled = true; settings.domStorageEnabled = true
+        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.ALGORITHMIC_DARKENING)) {
+            androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, true)
+        }
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val target = request?.url?.toString().orEmpty()
