@@ -210,7 +210,10 @@ class FirmwareRepository {
         if (!uri.scheme.equals("softwarefix", true) || !uri.host.equals("callback", true)) {
             throw FirmwareException("Invalid SoftwareFix callback")
         }
-        if (uri.getQueryParameters("state").singleOrNull() != expectedState) {
+        // Lenovo's SoftwareFix callback commonly omits OAuth state. When the
+        // server supplies one, it must still belong to this login attempt.
+        val callbackStates = uri.getQueryParameters("state")
+        if (callbackStates.isNotEmpty() && callbackStates.singleOrNull() != expectedState) {
             throw FirmwareException("Login callback does not match the active login request")
         }
         uri.getQueryParameters("error").firstOrNull { it.isNotBlank() }?.let { throw FirmwareException("Login failed: $it") }
@@ -379,11 +382,15 @@ class FirmwareRepository {
     }
 
     private fun postJson(url: String, body: JSONObject?, headers: Map<String, String>, timeoutMs: Int): Response {
+        val payload = body?.toString()?.toByteArray(StandardCharsets.UTF_8)
         val connection = open(url, "POST", headers, timeoutMs)
         return connection.useConnection {
-            if (body != null) {
+            if (payload != null) {
                 doOutput = true
-                OutputStreamWriter(outputStream, StandardCharsets.UTF_8).use { it.write(body.toString()) }
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("Accept", "application/json")
+                setFixedLengthStreamingMode(payload.size)
+                outputStream.use { it.write(payload) }
             }
             parseResponse()
         }
