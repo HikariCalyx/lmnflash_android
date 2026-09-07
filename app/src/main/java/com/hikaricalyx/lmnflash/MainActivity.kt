@@ -1,15 +1,15 @@
 package com.hikaricalyx.lmnflash
 
 import android.annotation.SuppressLint
-import android.app.LocaleManager
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
-import android.os.LocaleList
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
@@ -103,10 +103,29 @@ import com.hikaricalyx.lmnflash.l10n.AppLanguage
 import com.hikaricalyx.lmnflash.l10n.Translator
 import com.hikaricalyx.lmnflash.l10n.rememberTranslator
 import com.hikaricalyx.lmnflash.ui.theme.LMNFlashTheme
+import java.util.Locale
 
 private data class SoftwareFixCallback(val id: Long, val uri: String)
 
+private const val LANGUAGE_PREFERENCES = "app-language"
+private const val LANGUAGE_TAG_KEY = "selected-tag"
+
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        val languageTag = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            newBase.getSharedPreferences(LANGUAGE_PREFERENCES, Context.MODE_PRIVATE)
+                .getString(LANGUAGE_TAG_KEY, null)
+        } else {
+            null
+        }
+        val localizedBase = languageTag?.let { tag ->
+            val configuration = Configuration(newBase.resources.configuration).apply {
+                setLocale(Locale.forLanguageTag(tag))
+            }
+            newBase.createConfigurationContext(configuration)
+        } ?: newBase
+        super.attachBaseContext(localizedBase)
+    }
     private var callbackSequence = 0L
     private var callbackEvent by mutableStateOf<SoftwareFixCallback?>(null)
 
@@ -145,6 +164,13 @@ class MainActivity : ComponentActivity() {
             callbackEvent = SoftwareFixCallback(++callbackSequence, uri.toString())
         }
     }
+}
+
+private fun setLegacyAppLanguage(context: Context, languageTag: String?) {
+    context.getSharedPreferences(LANGUAGE_PREFERENCES, Context.MODE_PRIVATE).edit().apply {
+        if (languageTag == null) remove(LANGUAGE_TAG_KEY) else putString(LANGUAGE_TAG_KEY, languageTag)
+    }.apply()
+    (context as? Activity)?.recreate()
 }
 
 @Composable
@@ -217,6 +243,38 @@ private fun LoginStart(t: Translator, context: Context, onLogin: () -> Unit, onM
         if (message != null) { Spacer(Modifier.height(12.dp)); ErrorText(t.error(message)) }
         Spacer(Modifier.height(24.dp)); Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-button")) }
         Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = onManual, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-manual")) }
+    }
+}
+
+@Composable
+private fun LanguageMenu(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+
+    var expanded by remember { mutableStateOf(false) }
+    IconButton(onClick = { expanded = true }) {
+        Icon(
+            painter = painterResource(R.drawable.ic_language),
+            contentDescription = context.getString(R.string.language_menu_description),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text(context.getString(R.string.language_system_default)) },
+            onClick = {
+                setLegacyAppLanguage(context, null)
+                expanded = false
+            },
+        )
+        AppLanguage.entries.forEach { language ->
+            DropdownMenuItem(
+                text = { Text(language.nativeName) },
+                onClick = {
+                    setLegacyAppLanguage(context, language.tag)
+                    expanded = false
+                },
+            )
+        }
     }
 }
 
@@ -566,23 +624,6 @@ private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this -
 private fun LookupHistoryRecord.identifierLabel(t: Translator): String = if (mode == LookupMode.TABLET) t.text("history-psn") else t.text("lookup-imei-label")
 private fun LookupHistoryRecord.carrierOrCountryLabel(t: Translator): String = if (mode == LookupMode.BY_MODEL) t.text("by-model-country-label") else t.text("fw-carrier")
 private fun String.displayHistoryValue(): String = ifBlank { "—" }
-
-@Composable private fun LanguageMenu(context: Context) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-    val manager = context.getSystemService(LocaleManager::class.java)
-    var expanded by remember { mutableStateOf(false) }
-    IconButton(onClick = { expanded = true }) {
-        Icon(
-            painter = painterResource(R.drawable.ic_language),
-            contentDescription = context.getString(R.string.language_menu_description),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-    }
-    DropdownMenu(expanded, { expanded = false }) {
-        DropdownMenuItem({ Text(context.getString(R.string.language_system_default)) }, { manager.applicationLocales = LocaleList.getEmptyLocaleList(); expanded = false })
-        AppLanguage.entries.forEach { language -> DropdownMenuItem({ Text(language.nativeName) }, { manager.applicationLocales = LocaleList.forLanguageTags(language.tag); expanded = false }) }
-    }
-}
 
 private fun LookupMode.label(t: Translator) = t.text(when (this) { LookupMode.ROW_SMARTPHONE -> "lookup-mode-row"; LookupMode.RETCN_SMARTPHONE -> "lookup-mode-retcn"; LookupMode.TABLET -> "lookup-mode-tablet"; LookupMode.BY_MODEL -> "lookup-mode-by-model" })
 private fun Platform.label(t: Translator) = t.text(if (this == Platform.QUALCOMM) "platform-qualcomm" else "platform-mediatek")
