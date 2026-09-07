@@ -19,6 +19,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -159,19 +169,40 @@ private fun FirmwareLookupApp(
             onExternalCallbackConsumed(callback.id)
         }
     }
-    when (val login = state.login) {
-        LoginState.LoggedOut -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
-        LoginState.Loading -> CenteredProgress(t.text("login-fetching"))
-        is LoginState.Web -> WebLogin(t, login.url, viewModel::submitLoginCallback, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
-        is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
-        is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
-        is LoginState.LoggedIn -> if (showHistory) {
-            HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
-                viewModel.restoreHistory(record)
-                showHistory = false
-            }) { showHistory = false }
-        } else {
-            LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
+    AnimatedContent(
+        targetState = state.login,
+        contentKey = { it::class },
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(220, delayMillis = 60)) +
+                slideInVertically(animationSpec = tween(280)) { height -> height / 12 }) togetherWith
+                fadeOut(animationSpec = tween(90))
+        },
+        label = "login state",
+    ) { login ->
+        when (login) {
+            LoginState.LoggedOut -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
+            LoginState.Loading -> CenteredProgress(t.text("login-fetching"))
+            is LoginState.Web -> WebLogin(t, login.url, viewModel::submitLoginCallback, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
+            is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
+            is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
+            is LoginState.LoggedIn -> AnimatedContent(
+                targetState = showHistory,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
+                        slideInVertically(animationSpec = tween(240)) { height -> height / 16 }) togetherWith
+                        fadeOut(animationSpec = tween(90))
+                },
+                label = "lookup history",
+            ) { historyVisible ->
+                if (historyVisible) {
+                    HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
+                        viewModel.restoreHistory(record)
+                        showHistory = false
+                    }) { showHistory = false }
+                } else {
+                    LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
+                }
+            }
         }
     }
 }
@@ -261,60 +292,148 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
     Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, actions = { HistoryButton(t, onShowHistory); LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ModeMenu(t, state.mode, !loading, onMode) }
-            when (state.mode) {
-                LookupMode.ROW_SMARTPHONE -> item {
-                    Field(
-                        t.text("lookup-imei-label"),
-                        state.rowImei,
-                        placeholder = t.text("lookup-imei-placeholder"),
-                        keyboardType = KeyboardType.Number,
-                        isError = hasInvalidImeiChecksum(state.rowImei),
-                        onChange = { onImei(it.filter(Char::isDigit)) },
-                    )
+            item(key = "lookup-form") {
+                AnimatedContent(
+                    targetState = state.mode,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
+                            slideInVertically(animationSpec = tween(220)) { height -> height / 16 }) togetherWith
+                            fadeOut(animationSpec = tween(90))
+                    },
+                    label = "lookup form",
+                ) { mode ->
+                    LookupForm(t, state, mode, onImei, onRetcn, onTablet, onModelName, onModel, onCategory)
                 }
-                LookupMode.RETCN_SMARTPHONE -> retcnItems(t, state, onRetcn)
-                LookupMode.TABLET -> item { Field(t.text("tablet-sn-label"), state.tabletSerialNumber, onChange = onTablet) }
-                LookupMode.BY_MODEL -> modelItems(t, state, onModelName, onModel, onCategory)
             }
             item {
                 Button(onClick = onLookup, enabled = lookupEnabled, modifier = Modifier.fillMaxWidth()) {
-                    if (loading) {
-                        CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
+                    AnimatedVisibility(
+                        visible = loading,
+                        enter = fadeIn(animationSpec = tween(120)),
+                        exit = fadeOut(animationSpec = tween(90)) + shrinkHorizontally(animationSpec = tween(90)),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                        }
                     }
-                    Text(if (loading) t.text("lookup-fetching") else t.text("lookup-button"))
+                    AnimatedContent(targetState = loading, label = "lookup button label") { isLoading ->
+                        Text(if (isLoading) t.text("lookup-fetching") else t.text("lookup-button"))
+                    }
                 }
             }
-            item { LookupStatusView(t, state.lookupStatus, onCopy) }; item { Spacer(Modifier.height(16.dp)) }
+            item(key = "lookup-status") {
+                AnimatedContent(
+                    targetState = state.lookupStatus,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(180, delayMillis = 40)) + expandVertically(animationSpec = tween(220))) togetherWith
+                            (fadeOut(animationSpec = tween(90)) + shrinkVertically(animationSpec = tween(120)))
+                    },
+                    label = "lookup result",
+                ) { status -> LookupStatusView(t, status, onCopy) }
+            }
+            item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun LookupForm(
+    t: Translator,
+    state: FirmwareUiState,
+    mode: LookupMode,
+    onImei: (String) -> Unit,
+    onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit,
+    onTablet: (String) -> Unit,
+    onModelName: (String) -> Unit,
+    onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit,
+    onCategory: (DeviceCategory) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (mode) {
+            LookupMode.ROW_SMARTPHONE -> Field(
+                t.text("lookup-imei-label"),
+                state.rowImei,
+                placeholder = t.text("lookup-imei-placeholder"),
+                keyboardType = KeyboardType.Number,
+                isError = hasInvalidImeiChecksum(state.rowImei),
+                onChange = { onImei(it.filter(Char::isDigit)) },
+            )
+            LookupMode.RETCN_SMARTPHONE -> RetcnForm(t, state, onRetcn)
+            LookupMode.TABLET -> Field(t.text("tablet-sn-label"), state.tabletSerialNumber, onChange = onTablet)
+            LookupMode.BY_MODEL -> ModelForm(t, state, onModelName, onModel, onCategory)
         }
     }
 }
 
 @Composable private fun ModeMenu(t: Translator, mode: LookupMode, enabled: Boolean, onSelect: (LookupMode) -> Unit) { var expanded by remember { mutableStateOf(false) }; Column { Button({ expanded = true }, Modifier.fillMaxWidth(), enabled) { Text(mode.label(t)) }; DropdownMenu(expanded, { expanded = false }) { LookupMode.entries.forEach { item -> DropdownMenuItem({ Text(item.label(t)) }, { onSelect(item); expanded = false }) } } } }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.retcnItems(t: Translator, state: FirmwareUiState, onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit) {
+@Composable
+private fun RetcnForm(
+    t: Translator,
+    state: FirmwareUiState,
+    onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit,
+) {
     val f = state.retcn
-    item { Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium) }
-    item {
-        Field(
-            t.text("lookup-imei-label"),
-            f.imei,
-            keyboardType = KeyboardType.Number,
-            isError = hasInvalidImeiChecksum(f.imei),
-        ) { value ->
-            onUpdate { it.copy(imei = value.filter(Char::isDigit)) }
+    Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium)
+    Field(
+        t.text("lookup-imei-label"),
+        f.imei,
+        keyboardType = KeyboardType.Number,
+        isError = hasInvalidImeiChecksum(f.imei),
+    ) { value -> onUpdate { it.copy(imei = value.filter(Char::isDigit)) } }
+    Field(t.text("retcn-sn-label"), f.serialNumber) { value -> onUpdate { it.copy(serialNumber = value) } }
+    Field(t.text("retcn-model-label"), f.model) { value -> onUpdate { it.copy(model = value) } }
+    Field(t.text("retcn-carrier-label"), f.carrier) { value -> onUpdate { it.copy(carrier = value) } }
+    Field(t.text("retcn-fingerprint-label"), f.fingerprint) { value -> onUpdate { it.copy(fingerprint = value) } }
+    PlatformMenu(t, f.platform) { value -> onUpdate { it.copy(platform = value) } }
+    AnimatedContent(
+        targetState = f.platform,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = tween(180))) togetherWith
+                (fadeOut(animationSpec = tween(80)) + shrinkVertically(animationSpec = tween(120)))
+        },
+        label = "RETCN platform details",
+    ) { platform ->
+        if (platform == Platform.QUALCOMM) {
+            Field(t.text("retcn-fsg-label"), f.fsgVersion) { value -> onUpdate { it.copy(fsgVersion = value) } }
+        } else {
+            SimMenu(t, f.simCount) { value -> onUpdate { it.copy(simCount = value) } }
         }
     }
-    item { Field(t.text("retcn-sn-label"), f.serialNumber) { v -> onUpdate { it.copy(serialNumber = v) } } }; item { Field(t.text("retcn-model-label"), f.model) { v -> onUpdate { it.copy(model = v) } } }; item { Field(t.text("retcn-carrier-label"), f.carrier) { v -> onUpdate { it.copy(carrier = v) } } }; item { Field(t.text("retcn-fingerprint-label"), f.fingerprint) { v -> onUpdate { it.copy(fingerprint = v) } } }
-    item { PlatformMenu(t, f.platform) { v -> onUpdate { it.copy(platform = v) } } }
-    if (f.platform == Platform.QUALCOMM) item { Field(t.text("retcn-fsg-label"), f.fsgVersion) { v -> onUpdate { it.copy(fsgVersion = v) } } } else item { SimMenu(t, f.simCount) { v -> onUpdate { it.copy(simCount = v) } } }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.modelItems(t: Translator, state: FirmwareUiState, onName: (String) -> Unit, onUpdate: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit) {
+@Composable
+private fun ModelForm(
+    t: Translator,
+    state: FirmwareUiState,
+    onName: (String) -> Unit,
+    onUpdate: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit,
+    onCategory: (DeviceCategory) -> Unit,
+) {
     val f = state.model
-    item { Field(t.text("fw-model-name"), f.model, onChange = onName) }; item { CategoryMenu(t, f.category, onCategory) }
-    if (f.category != DeviceCategory.PHONE) item { Field(t.text("by-model-country-label"), f.countryCode) { v -> onUpdate { it.copy(countryCode = v) } } }
-    if (f.requiredForModel == f.model.trim()) items(f.requiredParameters, key = { it }) { key -> Field(key.label(t), f.parameterValues[key].orEmpty()) { v -> onUpdate { it.copy(parameterValues = it.parameterValues + (key to v)) } } }
+    Field(t.text("fw-model-name"), f.model, onChange = onName)
+    CategoryMenu(t, f.category, onCategory)
+    AnimatedVisibility(
+        visible = f.category != DeviceCategory.PHONE,
+        enter = fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = tween(200)),
+        exit = fadeOut(animationSpec = tween(80)) + shrinkVertically(animationSpec = tween(140)),
+    ) {
+        Field(t.text("by-model-country-label"), f.countryCode) { value -> onUpdate { it.copy(countryCode = value) } }
+    }
+    AnimatedVisibility(
+        visible = f.requiredForModel == f.model.trim(),
+        enter = fadeIn(animationSpec = tween(180, delayMillis = 40)) + expandVertically(animationSpec = tween(240)),
+        exit = fadeOut(animationSpec = tween(80)) + shrinkVertically(animationSpec = tween(140)),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            f.requiredParameters.forEach { key ->
+                Field(key.label(t), f.parameterValues[key].orEmpty()) { value ->
+                    onUpdate { it.copy(parameterValues = it.parameterValues + (key to value)) }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -376,34 +495,47 @@ private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onR
             TopAppBar(
                 title = { Text(t.text("history-title")) },
                 actions = {
-                    if (managing) {
-                        TextButton(onClick = { onRemove(selectedIds); exitManageMode() }, enabled = selectedIds.isNotEmpty()) { Text(t.text("history-remove", "count" to selectedIds.size)) }
-                        TextButton(onClick = { selectedIds = history.mapTo(linkedSetOf()) { it.id } }, enabled = selectedIds.size < history.size) { Text(t.text("history-select-all")) }
-                    } else {
-                        if (history.isNotEmpty()) TextButton(onClick = { managing = true }) { Text(t.text("history-manage")) }
+                    AnimatedContent(targetState = managing, label = "history actions") { isManaging ->
+                        if (isManaging) {
+                            Row {
+                                TextButton(onClick = { onRemove(selectedIds); exitManageMode() }, enabled = selectedIds.isNotEmpty()) { Text(t.text("history-remove", "count" to selectedIds.size)) }
+                                TextButton(onClick = { selectedIds = history.mapTo(linkedSetOf()) { it.id } }, enabled = selectedIds.size < history.size) { Text(t.text("history-select-all")) }
+                            }
+                        } else if (history.isNotEmpty()) {
+                            TextButton(onClick = { managing = true }) { Text(t.text("history-manage")) }
+                        }
                     }
                 },
             )
         },
     ) { padding ->
-        if (history.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) { Text(t.text("history-empty"), style = MaterialTheme.typography.bodyMedium) }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item { Spacer(Modifier.height(4.dp)) }
-                items(history, key = LookupHistoryRecord::id) { record ->
-                    HistoryRecord(t, record, managing, record.id in selectedIds) {
-                        if (managing) selectedIds = selectedIds.toggle(record.id) else onRestore(record)
+        AnimatedContent(
+            targetState = history,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(180, delayMillis = 40)) + expandVertically(animationSpec = tween(220))) togetherWith
+                    (fadeOut(animationSpec = tween(90)) + shrinkVertically(animationSpec = tween(120)))
+            },
+            label = "history content",
+        ) { records ->
+            if (records.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) { Text(t.text("history-empty"), style = MaterialTheme.typography.bodyMedium) }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    item { Spacer(Modifier.height(4.dp)) }
+                    items(records, key = LookupHistoryRecord::id) { record ->
+                        HistoryRecord(t, record, managing, record.id in selectedIds) {
+                            if (managing) selectedIds = selectedIds.toggle(record.id) else onRestore(record)
+                        }
                     }
+                    item { Spacer(Modifier.height(16.dp)) }
                 }
-                item { Spacer(Modifier.height(16.dp)) }
             }
         }
     }
@@ -420,7 +552,11 @@ private fun HistoryRecord(t: Translator, record: LookupHistoryRecord, managing: 
                 Text("${t.text("fw-model-name")}: ${record.model.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
                 Text("${record.carrierOrCountryLabel(t)}: ${record.carrierOrCountry.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
             }
-            if (managing) Checkbox(checked = selected, onCheckedChange = { onClick() })
+            AnimatedVisibility(
+                visible = managing,
+                enter = fadeIn(animationSpec = tween(120)) + expandVertically(animationSpec = tween(160)),
+                exit = fadeOut(animationSpec = tween(80)) + shrinkVertically(animationSpec = tween(120)),
+            ) { Checkbox(checked = selected, onCheckedChange = { onClick() }) }
         }
     }
 }
