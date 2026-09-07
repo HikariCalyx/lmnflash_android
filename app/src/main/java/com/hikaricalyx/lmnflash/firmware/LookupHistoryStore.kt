@@ -11,6 +11,7 @@ data class LookupHistoryRecord(
     val mode: LookupMode,
     val identifier: String = "",
     val model: String = "",
+    val marketName: String = "",
     val carrierOrCountry: String = "",
     val retcnForm: RetcnForm? = null,
     val modelForm: ModelForm? = null,
@@ -45,6 +46,7 @@ class LookupHistoryStore(context: Context) {
         .put("mode", record.mode.name)
         .put("identifier", record.identifier)
         .put("model", record.model)
+        .put("marketName", record.marketName)
         .put("carrierOrCountry", record.carrierOrCountry)
         .apply {
             record.retcnForm?.let { put("retcnForm", encodeRetcnForm(it)) }
@@ -62,6 +64,7 @@ class LookupHistoryStore(context: Context) {
                 mode = mode,
                 identifier = json.optString("identifier"),
                 model = json.optString("model"),
+                marketName = json.optString("marketName"),
                 carrierOrCountry = json.optString("carrierOrCountry"),
                 retcnForm = json.optJSONObject("retcnForm")?.let(::decodeRetcnForm),
                 modelForm = json.optJSONObject("modelForm")?.let(::decodeModelForm),
@@ -122,7 +125,15 @@ class LookupHistoryStore(context: Context) {
             LookupMode.BY_MODEL -> query
             else -> resultModel
         }
-        return LookupHistoryRecord(id, recordedAt, mode, identifier, model, data.optString("carrier"))
+        return LookupHistoryRecord(
+            id = id,
+            recordedAt = recordedAt,
+            mode = mode,
+            identifier = identifier,
+            model = model,
+            marketName = data.optString("marketName"),
+            carrierOrCountry = data.optString("carrier"),
+        )
     }
 
     private companion object {

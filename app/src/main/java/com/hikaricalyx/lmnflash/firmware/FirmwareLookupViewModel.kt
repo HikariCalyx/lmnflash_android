@@ -287,6 +287,7 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
             mode = draft.mode,
             identifier = draft.identifier,
             model = draft.model.ifBlank { result.historyModel() },
+            marketName = result.historyMarket(),
             carrierOrCountry = draft.carrierOrCountry.ifBlank { result.historyCarrier() },
             retcnForm = draft.retcnForm,
             modelForm = draft.modelForm,
@@ -322,6 +323,11 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
 private fun LookupResult.historyModel(): String = when (this) {
     is LookupResult.Standard -> info.modelName
     is LookupResult.CnTablet -> info.productModel
+}
+
+private fun LookupResult.historyMarket(): String = when (this) {
+    is LookupResult.Standard -> info.marketName
+    is LookupResult.CnTablet -> info.marketName
 }
 
 private fun LookupResult.historyCarrier(): String = when (this) {

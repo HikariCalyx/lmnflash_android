@@ -608,6 +608,7 @@ private fun HistoryRecord(t: Translator, record: LookupHistoryRecord, managing: 
                 Text(record.mode.label(t), style = MaterialTheme.typography.titleMedium)
                 if (record.identifier.isNotBlank()) Text("${record.identifierLabel(t)}: ${record.identifier}", style = MaterialTheme.typography.bodyMedium)
                 Text("${t.text("fw-model-name")}: ${record.model.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
+                Text("${t.text("fw-market-name")}: ${record.marketName.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
                 Text("${record.carrierOrCountryLabel(t)}: ${record.carrierOrCountry.displayHistoryValue()}", style = MaterialTheme.typography.bodyMedium)
             }
             AnimatedVisibility(
