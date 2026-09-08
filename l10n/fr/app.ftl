@@ -34,11 +34,9 @@ flash-bootloader-eligible = Ce téléphone peut déverrouiller le bootloader.
 flash-bootloader-not-eligible = Ce téléphone ne peut peut-être pas déverrouiller le bootloader.
 
 login-dialog-title = LMN Flash — Connexion
-login-prompt = Connectez-vous pour rechercher un firmware
-login-button = Se connecter
-login-button-hint = Clic gauche : navigateur intégré · Clic droit : connexion manuelle
+login-prompt = Connectez-vous pour rechercher un firmware. Votre navigateur s’ouvrira.
+login-button = Ouvrir le navigateur pour se connecter
 login-fetching = Récupération de l'URL de connexion…
-login-webview-open = Terminez la connexion dans la fenêtre de dialogue.
 login-manual-prompt = Connectez-vous dans votre navigateur, puis collez le lien SoftwareFix://callback ci-dessous :
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = Ouvrir dans le navigateur
@@ -48,7 +46,6 @@ login-submit = Confirmer
 login-cancel = Annuler
 login-back = Retour
 login-error = Échec de la connexion : { $error }
-login-webview-fallback = Impossible d'ouvrir la fenêtre de connexion intégrée ; veuillez vous connecter avec votre navigateur.
 
 lookup-mode-row = Rechercher par IMEI
 lookup-mode-retcn = Rechercher par informations de l'appareil

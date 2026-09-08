@@ -35,7 +35,8 @@ data class ModelForm(
 sealed interface LoginState {
     data object LoggedOut : LoginState
     data object Loading : LoginState
-    data class Web(val url: String, val expectedState: String) : LoginState
+    /** The login URL is being handed off to the user's selected external browser. */
+    data class Browser(val url: String, val expectedState: String) : LoginState
     data class Manual(val url: String, val expectedState: String, val notice: String? = null) : LoginState
     data class Error(val message: String) : LoginState
     data class LoggedIn(val session: Session) : LoginState
@@ -137,20 +138,25 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
 
     fun startLogin(manual: Boolean = false) {
         val clientUuid = credentials.clientUuid()
+        credentials.clearPendingLogin()
         state = state.copy(login = LoginState.Loading)
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { repository.fetchLoginUrl(clientUuid) } }
+            runCatching {
+                withContext(Dispatchers.IO) { repository.fetchLoginUrl(clientUuid) }.also { loginUrl ->
+                    withContext(Dispatchers.IO) { credentials.savePendingLogin(loginUrl.state) }
+                }
+            }
                 .onSuccess { loginUrl -> state = state.copy(login = if (manual) {
                     LoginState.Manual(loginUrl.url, loginUrl.state)
                 } else {
-                    LoginState.Web(loginUrl.url, loginUrl.state)
+                    LoginState.Browser(loginUrl.url, loginUrl.state)
                 }) }
                 .onFailure { error -> state = state.copy(login = LoginState.Error(error.userMessage())) }
         }
     }
 
     fun showManualLogin(notice: String? = null) {
-        val login = state.login as? LoginState.Web ?: return
+        val login = state.login as? LoginState.Browser ?: return
         state = state.copy(login = LoginState.Manual(login.url, login.expectedState, notice))
     }
 
@@ -160,9 +166,9 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
 
     private fun submitLoginCallback(callback: String, showError: Boolean) {
         val expectedState = when (val login = state.login) {
-            is LoginState.Web -> login.expectedState
+            is LoginState.Browser -> login.expectedState
             is LoginState.Manual -> login.expectedState
-            else -> return
+            else -> credentials.pendingLoginState() ?: return
         }
         val clientUuid = credentials.clientUuid()
         runCatching { repository.parseLoginCallback(callback, expectedState) }
@@ -170,15 +176,27 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
             .onSuccess { parsed ->
                 val session = parsed.copy(clientUuid = clientUuid)
                 viewModelScope.launch {
-                    withContext(Dispatchers.IO) { credentials.save(session) }
+                    withContext(Dispatchers.IO) {
+                        credentials.save(session)
+                        credentials.clearPendingLogin()
+                    }
                     state = state.copy(login = LoginState.LoggedIn(session))
                     pendingLookup?.also { pendingLookup = null; it() }
                 }
             }
     }
 
-    fun cancelLogin() { state = state.copy(login = LoginState.LoggedOut); pendingLookup = null }
-    fun logout() { credentials.clearToken(); state = state.copy(login = LoginState.LoggedOut, lookupStatus = LookupStatus.Idle) }
+    fun cancelLogin() {
+        credentials.clearPendingLogin()
+        state = state.copy(login = LoginState.LoggedOut)
+        pendingLookup = null
+    }
+
+    fun logout() {
+        credentials.clearToken()
+        credentials.clearPendingLogin()
+        state = state.copy(login = LoginState.LoggedOut, lookupStatus = LookupStatus.Idle)
+    }
 
     fun lookup() {
         when (state.mode) {

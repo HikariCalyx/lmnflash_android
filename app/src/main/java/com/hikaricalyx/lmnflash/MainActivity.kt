@@ -1,20 +1,13 @@
 package com.hikaricalyx.lmnflash
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
-import android.view.ViewGroup
-import android.webkit.RenderProcessGoneDetail
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -85,7 +78,6 @@ import androidx.core.net.toUri
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -207,9 +199,9 @@ private fun FirmwareLookupApp(
         label = "login state",
     ) { login ->
         when (login) {
-            LoginState.LoggedOut -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
+            LoginState.LoggedOut -> LoginStart(t, context, viewModel::startLogin, { viewModel.startLogin(manual = true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
             LoginState.Loading -> CenteredProgress(t.text("login-fetching"))
-            is LoginState.Web -> WebLogin(t, login.url, viewModel::submitLoginCallback, { viewModel.showManualLogin(t.text("login-webview-fallback")) }, viewModel::cancelLogin)
+            is LoginState.Browser -> BrowserLogin(t, login, viewModel::showManualLogin)
             is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
             is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
             is LoginState.LoggedIn -> AnimatedContent(
@@ -282,49 +274,14 @@ private fun LanguageMenu(context: Context) {
 @Composable private fun CenteredProgress(label: String) = Column(Modifier.fillMaxSize().safeDrawingPadding(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(label) }
 
 @Composable
-private fun WebLogin(t: Translator, url: String, onCallback: (String) -> Unit, onManual: () -> Unit, onCancel: () -> Unit) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) { TextButton(onClick = onManual) { Text(t.text("login-manual-short")) }; TextButton(onClick = onCancel) { Text(t.text("login-cancel")) } }
-        LoginWebView(url, onCallback, onManual, Modifier.fillMaxWidth().weight(1f))
+private fun BrowserLogin(t: Translator, login: LoginState.Browser, onBrowserOpened: () -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(login.url, login.expectedState) {
+        openBrowser(context, login.url)
+        onBrowserOpened()
     }
+    CenteredProgress(t.text("login-fetching"))
 }
-
-@SuppressLint(
-    "SetJavaScriptEnabled", // Lenovo's login page requires JavaScript; no JavaScript bridge is exposed.
-    "MissingOnRenderProcessGone", // Renderer loss is handled by the API-26 override in this WebViewClient.
-)
-@Composable
-private fun LoginWebView(
-    url: String,
-    onCallback: (String) -> Unit,
-    onManual: () -> Unit,
-    modifier: Modifier = Modifier,
-) = AndroidView(modifier = modifier, factory = { context ->
-    WebView(context).apply {
-        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        settings.javaScriptEnabled = true; settings.domStorageEnabled = true
-        if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.ALGORITHMIC_DARKENING)) {
-            androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, true)
-        }
-        webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val target = request?.url?.toString().orEmpty()
-                return if (target.startsWith("softwarefix://", true)) { onCallback(target); true } else false
-            }
-
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                if (url?.startsWith("softwarefix://", true) == true) onCallback(url)
-            }
-
-            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-                view.destroy()
-                onManual()
-                return true
-            }
-        }
-        loadUrl(url)
-    }
-})
 
 @Composable
 private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () -> Unit, onBrowser: () -> Unit, onSubmit: (String) -> Unit, onCancel: () -> Unit) {

@@ -34,11 +34,9 @@ flash-bootloader-eligible = Deze telefoon kan de bootloader ontgrendelen.
 flash-bootloader-not-eligible = Deze telefoon kan de bootloader mogelijk niet ontgrendelen.
 
 login-dialog-title = LMN Flash — Aanmelden
-login-prompt = Meld u aan om firmware te zoeken
-login-button = Aanmelden
-login-button-hint = Linksklik: ingebouwde browser · Rechtsklik: handmatig aanmelden
+login-prompt = Meld u aan om firmware te zoeken. Uw browser wordt geopend.
+login-button = Browser openen om aan te melden
 login-fetching = Aanmeld-URL ophalen…
-login-webview-open = Voltooi het aanmelden in het dialoogvenster.
 login-manual-prompt = Meld u aan in uw browser en plak daarna de SoftwareFix://callback-link hieronder:
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = In browser openen
@@ -48,7 +46,6 @@ login-submit = Bevestigen
 login-cancel = Annuleren
 login-back = Terug
 login-error = Aanmelden mislukt: { $error }
-login-webview-fallback = Het ingebouwde aanmeldvenster kon niet worden geopend; meld u aan via uw browser.
 
 lookup-mode-row = Zoeken op IMEI
 lookup-mode-retcn = Zoeken op apparaatinformatie

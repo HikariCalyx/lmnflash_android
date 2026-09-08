@@ -34,11 +34,9 @@ flash-bootloader-eligible = Цей телефон підходить для ро
 flash-bootloader-not-eligible = Можливо, цей телефон не підходить для розблокування завантажувача.
 
 login-dialog-title = LMN Flash — Вхід
-login-prompt = Увійдіть, щоб знайти прошивку
-login-button = Увійти
-login-button-hint = ЛКМ: вбудований браузер · ПКМ: вхід вручну
+login-prompt = Увійдіть, щоб знайти прошивку. Відкриється браузер.
+login-button = Відкрити браузер для входу
 login-fetching = Отримання URL входу…
-login-webview-open = Завершіть вхід у діалоговому вікні.
 login-manual-prompt = Увійдіть у браузері, потім вставте посилання SoftwareFix://callback нижче:
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = Відкрити в браузері
@@ -48,7 +46,6 @@ login-submit = Підтвердити
 login-cancel = Скасувати
 login-back = Назад
 login-error = Помилка входу: { $error }
-login-webview-fallback = Не вдалося відкрити вбудоване вікно входу; увійдіть через браузер.
 
 lookup-mode-row = Пошук за IMEI
 lookup-mode-retcn = Пошук за даними пристрою

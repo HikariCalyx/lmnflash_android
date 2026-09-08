@@ -34,11 +34,9 @@ flash-bootloader-eligible = 该手机可以解锁 Bootloader。
 flash-bootloader-not-eligible = 该手机可能无法解锁 Bootloader。
 
 login-dialog-title = LMN Flash — 登录
-login-prompt = 登录后查询固件
-login-button = 登录
-login-button-hint = 左键单击：内置浏览器 · 右键单击：手动登录
+login-prompt = 登录后查询固件。将打开浏览器。
+login-button = 在浏览器中登录
 login-fetching = 正在获取登录链接…
-login-webview-open = 请在弹窗中完成登录。
 login-manual-prompt = 请在浏览器中登录，然后将 SoftwareFix://callback 链接粘贴到下面：
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = 在浏览器中打开
@@ -48,7 +46,6 @@ login-submit = 确认
 login-cancel = 取消
 login-back = 返回
 login-error = 登录失败：{ $error }
-login-webview-fallback = 无法打开内置登录窗口，请在浏览器中登录。
 
 lookup-mode-row = 按 IMEI 查询
 lookup-mode-retcn = 按设备信息查询

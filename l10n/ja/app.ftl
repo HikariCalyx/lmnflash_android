@@ -34,11 +34,9 @@ flash-bootloader-eligible = このスマートフォンはブートローダー�
 flash-bootloader-not-eligible = このスマートフォンはブートローダーのロック解除ができない可能性があります。
 
 login-dialog-title = LMN Flash — ログイン
-login-prompt = ログインしてファームウェアを検索
-login-button = ログイン
-login-button-hint = 左クリック：内蔵ブラウザー · 右クリック：手動ログイン
+login-prompt = ログインしてファームウェアを検索します。ブラウザーが開きます。
+login-button = ブラウザーでログイン
 login-fetching = ログイン URL を取得中…
-login-webview-open = ダイアログ ウィンドウでログインを完了してください。
 login-manual-prompt = ブラウザーでログインし、SoftwareFix://callback リンクを下に貼り付けてください：
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = ブラウザーで開く
@@ -48,7 +46,6 @@ login-submit = 確認
 login-cancel = キャンセル
 login-back = 戻る
 login-error = ログインに失敗しました：{ $error }
-login-webview-fallback = 内蔵ログイン ウィンドウを開けませんでした。ブラウザーでログインしてください。
 
 lookup-mode-row = IMEI で検索
 lookup-mode-retcn = 端末情報で検索

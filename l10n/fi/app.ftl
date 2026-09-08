@@ -34,11 +34,9 @@ flash-bootloader-eligible = Tämä puhelin voi avata bootloaderin lukituksen.
 flash-bootloader-not-eligible = Tämä puhelin ei välttämättä voi avata bootloaderin lukitusta.
 
 login-dialog-title = LMN Flash — Kirjaudu sisään
-login-prompt = Kirjaudu sisään hakeaksesi firmwarea
-login-button = Kirjaudu sisään
-login-button-hint = Vasen napsautus: sisäänrakennettu selain · Oikea napsautus: manuaalinen kirjautuminen
+login-prompt = Kirjaudu sisään hakeaksesi firmwarea. Selain avautuu.
+login-button = Avaa selain kirjautuaksesi sisään
 login-fetching = Noudetaan kirjautumis-URL-osoitetta…
-login-webview-open = Viimeistele kirjautuminen valintaikkunassa.
 login-manual-prompt = Kirjaudu selaimella ja liitä SoftwareFix://callback-linkki alle:
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = Avaa selaimessa
@@ -48,7 +46,6 @@ login-submit = Vahvista
 login-cancel = Peruuta
 login-back = Takaisin
 login-error = Kirjautuminen epäonnistui: { $error }
-login-webview-fallback = Sisäänrakennettua kirjautumisikkunaa ei voitu avata; kirjaudu selaimella.
 
 lookup-mode-row = Haku IMEI-numerolla
 lookup-mode-retcn = Haku laitetiedoilla

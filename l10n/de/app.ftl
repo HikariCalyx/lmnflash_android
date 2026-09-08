@@ -34,11 +34,9 @@ flash-bootloader-eligible = Dieses Telefon kann den Bootloader entsperren.
 flash-bootloader-not-eligible = Dieses Telefon kann den Bootloader möglicherweise nicht entsperren.
 
 login-dialog-title = LMN Flash — Anmelden
-login-prompt = Melden Sie sich an, um Firmware zu suchen
-login-button = Anmelden
-login-button-hint = Linksklick: integrierter Browser · Rechtsklick: manuell anmelden
+login-prompt = Melden Sie sich an, um Firmware zu suchen. Ihr Browser wird geöffnet.
+login-button = Browser zum Anmelden öffnen
 login-fetching = Anmelde-URL wird abgerufen…
-login-webview-open = Schließen Sie die Anmeldung im Dialogfenster ab.
 login-manual-prompt = Melden Sie sich im Browser an und fügen Sie dann den SoftwareFix://callback-Link unten ein:
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = Im Browser öffnen
@@ -48,7 +46,6 @@ login-submit = Bestätigen
 login-cancel = Abbrechen
 login-back = Zurück
 login-error = Anmeldung fehlgeschlagen: { $error }
-login-webview-fallback = Das integrierte Anmeldefenster konnte nicht geöffnet werden; melden Sie sich bitte über den Browser an.
 
 lookup-mode-row = Suche nach IMEI
 lookup-mode-retcn = Suche nach Geräteinformationen

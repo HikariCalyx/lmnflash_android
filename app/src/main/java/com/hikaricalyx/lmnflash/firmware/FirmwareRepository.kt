@@ -114,6 +114,26 @@ class CredentialStore(context: Context) {
             .apply()
     }
 
+    fun savePendingLogin(expectedState: String) {
+        preferences.edit()
+            .putString(KEY_PENDING_LOGIN_STATE, expectedState)
+            .putLong(KEY_PENDING_LOGIN_SAVED_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun pendingLoginState(): String? {
+        val savedAt = preferences.getLong(KEY_PENDING_LOGIN_SAVED_AT, 0)
+        if (System.currentTimeMillis() - savedAt >= PENDING_LOGIN_VALIDITY_MS) {
+            clearPendingLogin()
+            return null
+        }
+        return preferences.getString(KEY_PENDING_LOGIN_STATE, null)?.takeIf(String::isNotBlank)
+    }
+
+    fun clearPendingLogin() {
+        preferences.edit().remove(KEY_PENDING_LOGIN_STATE).remove(KEY_PENDING_LOGIN_SAVED_AT).apply()
+    }
+
     fun clearToken() {
         preferences.edit().remove(KEY_TOKEN).remove(KEY_SAVED_AT).apply()
     }
@@ -149,9 +169,12 @@ class CredentialStore(context: Context) {
         const val KEY_TOKEN = "token"
         const val KEY_UUID = "client_uuid"
         const val KEY_SAVED_AT = "saved_at"
+        const val KEY_PENDING_LOGIN_STATE = "pending_login_state"
+        const val KEY_PENDING_LOGIN_SAVED_AT = "pending_login_saved_at"
         const val KEY_ALIAS = "lmnflash_session_key"
         const val AES_TRANSFORMATION = "AES/GCM/NoPadding"
         const val SESSION_VALIDITY_MS = 3 * 60 * 60 * 1000L
+        const val PENDING_LOGIN_VALIDITY_MS = 10 * 60 * 1000L
     }
 }
 

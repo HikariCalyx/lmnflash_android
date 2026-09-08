@@ -34,11 +34,9 @@ flash-bootloader-eligible = 이 휴대전화는 부트로더 잠금을 해제할
 flash-bootloader-not-eligible = 이 휴대전화는 부트로더 잠금을 해제하지 못할 수 있습니다.
 
 login-dialog-title = LMN Flash — 로그인
-login-prompt = 로그인하여 펌웨어 조회
-login-button = 로그인
-login-button-hint = 왼쪽 클릭: 내장 브라우저 · 오른쪽 클릭: 수동 로그인
+login-prompt = 로그인하여 펌웨어를 조회하세요. 브라우저가 열립니다.
+login-button = 브라우저에서 로그인
 login-fetching = 로그인 URL 가져오는 중…
-login-webview-open = 대화 상자 창에서 로그인을 완료하세요.
 login-manual-prompt = 브라우저에서 로그인한 후 SoftwareFix://callback 링크를 아래에 붙여넣으세요.
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = 브라우저에서 열기
@@ -48,7 +46,6 @@ login-submit = 확인
 login-cancel = 취소
 login-back = 뒤로
 login-error = 로그인 실패: { $error }
-login-webview-fallback = 내장 로그인 창을 열 수 없습니다. 브라우저로 로그인하세요.
 
 lookup-mode-row = IMEI로 조회
 lookup-mode-retcn = 기기 정보로 조회

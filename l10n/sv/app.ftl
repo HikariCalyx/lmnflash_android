@@ -34,11 +34,9 @@ flash-bootloader-eligible = Den här telefonen kan låsa upp bootloadern.
 flash-bootloader-not-eligible = Den här telefonen kanske inte kan låsa upp bootloadern.
 
 login-dialog-title = LMN Flash — Logga in
-login-prompt = Logga in för att söka firmware
-login-button = Logga in
-login-button-hint = Vänsterklick: inbyggd webbläsare · Högerklick: logga in manuellt
+login-prompt = Logga in för att söka firmware. Din webbläsare öppnas.
+login-button = Öppna webbläsaren för att logga in
 login-fetching = Hämtar inloggnings-URL…
-login-webview-open = Slutför inloggningen i dialogfönstret.
 login-manual-prompt = Logga in i webbläsaren och klistra sedan in SoftwareFix://callback-länken nedan:
 login-manual-placeholder = SoftwareFix://callback?Authorization=…
 login-open-browser = Öppna i webbläsaren
@@ -48,7 +46,6 @@ login-submit = Bekräfta
 login-cancel = Avbryt
 login-back = Tillbaka
 login-error = Inloggningen misslyckades: { $error }
-login-webview-fallback = Det inbyggda inloggningsfönstret kunde inte öppnas. Logga in med webbläsaren i stället.
 
 lookup-mode-row = Sök efter IMEI
 lookup-mode-retcn = Sök efter enhetsinformation
