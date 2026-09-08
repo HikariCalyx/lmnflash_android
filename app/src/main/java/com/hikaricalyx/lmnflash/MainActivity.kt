@@ -106,7 +106,7 @@ private const val LANGUAGE_TAG_KEY = "selected-tag"
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         val languageTag = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            newBase.getSharedPreferences(LANGUAGE_PREFERENCES, Context.MODE_PRIVATE)
+            newBase.getSharedPreferences(LANGUAGE_PREFERENCES, MODE_PRIVATE)
                 .getString(LANGUAGE_TAG_KEY, null)
         } else {
             null
@@ -554,6 +554,9 @@ private fun HistoryButton(t: Translator, onClick: () -> Unit) {
 private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onRemove: (Set<String>) -> Unit, onRestore: (LookupHistoryRecord) -> Unit, onBack: () -> Unit) {
     var managing by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val filteredHistory = history.filter { it.matchesHistorySearch(query, t) }
+    val displayedHistory = if (managing) history else filteredHistory
     fun exitManageMode() { managing = false; selectedIds = emptySet() }
     BackHandler { if (managing) exitManageMode() else onBack() }
     Scaffold(
@@ -575,32 +578,47 @@ private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onR
             )
         },
     ) { padding ->
-        AnimatedContent(
-            targetState = history,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(180, delayMillis = 40)) + expandVertically(animationSpec = tween(220))) togetherWith
-                    (fadeOut(animationSpec = tween(90)) + shrinkVertically(animationSpec = tween(120)))
-            },
-            label = "history content",
-        ) { records ->
-            if (records.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) { Text(t.text("history-empty"), style = MaterialTheme.typography.bodyMedium) }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    item { Spacer(Modifier.height(4.dp)) }
-                    items(records, key = LookupHistoryRecord::id) { record ->
-                        HistoryRecord(t, record, managing, record.id in selectedIds) {
-                            if (managing) selectedIds = selectedIds.toggle(record.id) else onRestore(record)
+        if (history.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) { Text(t.text("history-empty"), style = MaterialTheme.typography.bodyMedium) }
+        } else {
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+                if (!managing) {
+                    Spacer(Modifier.height(4.dp))
+                    Field(t.text("history-search"), query, onChange = { query = it })
+                    Spacer(Modifier.height(12.dp))
+                }
+                AnimatedContent(
+                    targetState = displayedHistory,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(180, delayMillis = 40)) + expandVertically(animationSpec = tween(220))) togetherWith
+                            (fadeOut(animationSpec = tween(90)) + shrinkVertically(animationSpec = tween(120)))
+                    },
+                    label = "history content",
+                ) { records ->
+                    if (records.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) { Text(t.text("history-no-results"), style = MaterialTheme.typography.bodyMedium) }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            items(records, key = LookupHistoryRecord::id) { record ->
+                                HistoryRecord(t, record, managing, record.id in selectedIds) {
+                                    if (managing) selectedIds = selectedIds.toggle(record.id) else onRestore(record)
+                                }
+                            }
+                            item { Spacer(Modifier.height(16.dp)) }
                         }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }
@@ -633,6 +651,11 @@ private fun Set<String>.toggle(id: String): Set<String> = if (id in this) this -
 private fun LookupHistoryRecord.identifierLabel(t: Translator): String = if (mode == LookupMode.TABLET) t.text("history-psn") else t.text("lookup-imei-label")
 private fun LookupHistoryRecord.carrierOrCountryLabel(t: Translator): String = if (mode == LookupMode.BY_MODEL) t.text("by-model-country-label") else t.text("fw-carrier")
 private fun String.displayHistoryValue(): String = ifBlank { "—" }
+private fun LookupHistoryRecord.matchesHistorySearch(query: String, t: Translator): Boolean {
+    val trimmedQuery = query.trim()
+    return trimmedQuery.isBlank() || sequenceOf(mode.label(t), identifier, model, marketName, carrierOrCountry)
+        .any { value -> value.contains(trimmedQuery, ignoreCase = true) }
+}
 
 private fun LookupMode.label(t: Translator) = t.text(when (this) { LookupMode.ROW_SMARTPHONE -> "lookup-mode-row"; LookupMode.RETCN_SMARTPHONE -> "lookup-mode-retcn"; LookupMode.TABLET -> "lookup-mode-tablet"; LookupMode.BY_MODEL -> "lookup-mode-by-model" })
 private fun Platform.label(t: Translator) = t.text(if (this == Platform.QUALCOMM) "platform-qualcomm" else "platform-mediatek")
