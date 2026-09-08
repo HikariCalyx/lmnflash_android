@@ -1,6 +1,7 @@
 package com.hikaricalyx.lmnflash.firmware
 
 import android.content.Context
+import com.hikaricalyx.lmnflash.BuildConfig
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -74,6 +75,7 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
     private val credentials = CredentialStore(appContext)
     private val historyStore = LookupHistoryStore(appContext)
     private val repository = FirmwareRepository()
+    private val telemetryReporter = FirmwareTelemetryReporter(BuildConfig.VERSION_NAME)
     private var pendingLookup: (() -> Unit)? = null
 
     var state by mutableStateOf(FirmwareUiState())
@@ -313,7 +315,34 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
         val history = listOf(record) + state.history.filterNot { existing -> existing.matchesLookup(record) }
         state = state.copy(history = history, lookupStatus = LookupStatus.Done(result))
         pendingLookup = null
+        reportFirmwareFound(draft, result)
         viewModelScope.launch(Dispatchers.IO) { historyStore.save(history) }
+    }
+
+    private fun reportFirmwareFound(draft: LookupHistoryDraft, result: LookupResult) {
+        when (draft.mode) {
+            LookupMode.ROW_SMARTPHONE -> (result as? LookupResult.Standard)?.info
+                ?.takeIf { it.downloadUri.isNotBlank() }
+                ?.let { info -> reportTelemetry { telemetryReporter.reportRowFirmwareFound(draft.identifier, info) } }
+            LookupMode.RETCN_SMARTPHONE -> (result as? LookupResult.Standard)?.info
+                ?.takeIf { it.downloadUri.isNotBlank() }
+                ?.let { info -> draft.retcnForm?.let { form ->
+                    reportTelemetry { telemetryReporter.reportRetcnFirmwareFound(draft.identifier, form, info) }
+                } }
+            LookupMode.TABLET -> when (result) {
+                is LookupResult.CnTablet -> result.info.takeIf { it.downloadUri.isNotBlank() }?.let { info ->
+                    reportTelemetry { telemetryReporter.reportTabletFirmwareFound(draft.identifier, info.productModel, info.marketName, info.fileName) }
+                }
+                is LookupResult.Standard -> result.info.takeIf { it.downloadUri.isNotBlank() }?.let { info ->
+                    reportTelemetry { telemetryReporter.reportTabletFirmwareFound(draft.identifier, info.modelName, info.marketName, info.fileName) }
+                }
+            }
+            LookupMode.BY_MODEL -> Unit
+        }
+    }
+
+    private fun reportTelemetry(report: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) { runCatching(report) }
     }
 
     private fun LookupHistoryRecord.matchesLookup(record: LookupHistoryRecord): Boolean {
