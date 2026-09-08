@@ -54,6 +54,8 @@ class Translator private constructor(private val messages: Map<String, String>) 
         "Carrier is required" -> text("retcn-error-carrier")
         "Serial number is required" -> text("retcn-error-sn")
         "FSG version is required for Qualcomm" -> text("retcn-error-fsg")
+        "This feature cannot be used on the current device. It is only available on Lenovo and Motorola devices." -> text("retcn-read-current-device-unsupported")
+        "Permission required for reading IMEI is denied. Please input IMEI manually." -> text("retcn-read-current-device-permission-denied")
         "Model name is required" -> text("by-model-error-required")
         "Log in to look up firmware" -> text("login-prompt")
         else -> message

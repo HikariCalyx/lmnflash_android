@@ -48,6 +48,13 @@ sealed interface LookupStatus {
     data class Done(val result: LookupResult) : LookupStatus
 }
 
+sealed interface DeviceReadStatus {
+    data object Idle : DeviceReadStatus
+    data object Reading : DeviceReadStatus
+    data object Completed : DeviceReadStatus
+    data class Error(val message: String) : DeviceReadStatus
+}
+
 data class FirmwareUiState(
     val login: LoginState = LoginState.LoggedOut,
     val mode: LookupMode = LookupMode.ROW_SMARTPHONE,
@@ -56,6 +63,7 @@ data class FirmwareUiState(
     val tabletSerialNumber: String = "",
     val model: ModelForm = ModelForm(),
     val lookupStatus: LookupStatus = LookupStatus.Idle,
+    val deviceReadStatus: DeviceReadStatus = DeviceReadStatus.Idle,
     val history: List<LookupHistoryRecord> = emptyList(),
 )
 
@@ -72,6 +80,7 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
     private val appContext = context.applicationContext
     private val credentials = CredentialStore(appContext)
     private val historyStore = LookupHistoryStore(appContext)
+    private val currentDeviceInfoReader = CurrentDeviceInfoReader(appContext)
     private val repository = FirmwareRepository()
     private var pendingLookup: (() -> Unit)? = null
 
@@ -89,6 +98,35 @@ class FirmwareLookupViewModel(context: Context) : ViewModel() {
     fun selectMode(mode: LookupMode) { state = state.copy(mode = mode, lookupStatus = LookupStatus.Idle) }
     fun updateRowImei(value: String) { state = state.copy(rowImei = value) }
     fun updateRetcn(transform: (RetcnForm) -> RetcnForm) { state = state.copy(retcn = transform(state.retcn)) }
+    fun isCurrentDeviceSupported(): Boolean = currentDeviceInfoReader.isSupportedDevice()
+    fun showCurrentDeviceUnsupported() {
+        state = state.copy(deviceReadStatus = DeviceReadStatus.Error("This feature cannot be used on the current device. It is only available on Lenovo and Motorola devices."))
+    }
+    fun notifyImeiPermissionDenied() {
+        state = state.copy(deviceReadStatus = DeviceReadStatus.Error("Permission required for reading IMEI is denied. Please input IMEI manually."))
+    }
+    fun readCurrentDevice() {
+        if (!isCurrentDeviceSupported()) return showCurrentDeviceUnsupported()
+        state = state.copy(deviceReadStatus = DeviceReadStatus.Reading)
+        viewModelScope.launch {
+            val device = withContext(Dispatchers.IO) { currentDeviceInfoReader.read() }
+            if (device == null) return@launch showCurrentDeviceUnsupported()
+            val form = state.retcn
+            state = state.copy(
+                retcn = form.copy(
+                    imei = device.imei.filter(Char::isDigit).ifBlank { form.imei },
+                    serialNumber = device.serialNumber.ifBlank { form.serialNumber },
+                    model = device.model.ifBlank { form.model },
+                    carrier = device.carrier.ifBlank { form.carrier },
+                    fingerprint = device.fingerprint.ifBlank { form.fingerprint },
+                    platform = device.platform,
+                    fsgVersion = device.fsgVersion.ifBlank { form.fsgVersion },
+                    simCount = device.simCount,
+                ),
+                deviceReadStatus = DeviceReadStatus.Completed,
+            )
+        }
+    }
     fun updateTabletSerialNumber(value: String) { state = state.copy(tabletSerialNumber = value) }
     fun updateModel(transform: (ModelForm) -> ModelForm) { state = state.copy(model = transform(state.model)) }
     fun clearHistory() {

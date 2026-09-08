@@ -1,11 +1,13 @@
 package com.hikaricalyx.lmnflash
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Build
@@ -17,8 +19,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -81,6 +85,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -90,6 +95,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hikaricalyx.lmnflash.firmware.CnTabletInfo
 import com.hikaricalyx.lmnflash.firmware.DeviceCategory
+import com.hikaricalyx.lmnflash.firmware.DeviceReadStatus
 import com.hikaricalyx.lmnflash.firmware.FirmwareInfo
 import com.hikaricalyx.lmnflash.firmware.FirmwareLookupViewModel
 import com.hikaricalyx.lmnflash.firmware.FirmwareUiState
@@ -188,6 +194,16 @@ private fun FirmwareLookupApp(
     }
     val viewModel: FirmwareLookupViewModel = viewModel(factory = factory)
     val state = viewModel.state
+    val imeiPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.readCurrentDevice() else viewModel.notifyImeiPermissionDenied()
+    }
+    val onReadCurrentDevice: () -> Unit = {
+        when {
+            !viewModel.isCurrentDeviceSupported() -> viewModel.showCurrentDeviceUnsupported()
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED -> viewModel.readCurrentDevice()
+            else -> imeiPermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+        }
+    }
     var showHistory by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(externalCallback?.id) {
         externalCallback?.let { callback ->
@@ -226,7 +242,7 @@ private fun FirmwareLookupApp(
                         showHistory = false
                     }) { showHistory = false }
                 } else {
-                    LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
+                    LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, onReadCurrentDevice, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
                 }
             }
         }
@@ -340,7 +356,7 @@ private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onShowHistory: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
+private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onReadCurrentDevice: () -> Unit, onLookup: () -> Unit, onShowHistory: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
     val loading = state.lookupStatus is LookupStatus.Loading
     val lookupEnabled = !loading && when (state.mode) {
         LookupMode.ROW_SMARTPHONE -> isValidImei(state.rowImei)
@@ -360,7 +376,7 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
                     },
                     label = "lookup form",
                 ) { mode ->
-                    LookupForm(t, state, mode, onImei, onRetcn, onTablet, onModelName, onModel, onCategory)
+                    LookupForm(t, state, mode, onImei, onRetcn, onTablet, onModelName, onModel, onCategory, onReadCurrentDevice)
                 }
             }
             item {
@@ -406,6 +422,7 @@ private fun LookupForm(
     onModelName: (String) -> Unit,
     onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit,
     onCategory: (DeviceCategory) -> Unit,
+    onReadCurrentDevice: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (mode) {
@@ -417,7 +434,7 @@ private fun LookupForm(
                 isError = hasInvalidImeiChecksum(state.rowImei),
                 onChange = { onImei(it.filter(Char::isDigit)) },
             )
-            LookupMode.RETCN_SMARTPHONE -> RetcnForm(t, state, onRetcn)
+            LookupMode.RETCN_SMARTPHONE -> RetcnForm(t, state, onRetcn, onReadCurrentDevice)
             LookupMode.TABLET -> Field(t.text("tablet-sn-label"), state.tabletSerialNumber, onChange = onTablet)
             LookupMode.BY_MODEL -> ModelForm(t, state, onModelName, onModel, onCategory)
         }
@@ -431,9 +448,28 @@ private fun RetcnForm(
     t: Translator,
     state: FirmwareUiState,
     onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit,
+    onReadCurrentDevice: () -> Unit,
 ) {
     val f = state.retcn
+    val reading = state.deviceReadStatus is DeviceReadStatus.Reading
     Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium)
+    OutlinedButton(
+        onClick = onReadCurrentDevice,
+        enabled = !reading && state.lookupStatus !is LookupStatus.Loading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (reading) {
+            CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(t.text("retcn-read-current-device-reading"))
+        } else Text(t.text("retcn-read-current-device"))
+    }
+    when (val readStatus = state.deviceReadStatus) {
+        DeviceReadStatus.Idle -> Unit
+        DeviceReadStatus.Reading -> Unit
+        DeviceReadStatus.Completed -> Text(t.text("retcn-read-current-device-complete"), style = MaterialTheme.typography.bodyMedium)
+        is DeviceReadStatus.Error -> ErrorText(t.error(readStatus.message))
+    }
     Field(
         t.text("lookup-imei-label"),
         f.imei,
