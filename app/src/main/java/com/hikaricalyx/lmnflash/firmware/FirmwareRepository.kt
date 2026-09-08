@@ -21,8 +21,8 @@ import javax.crypto.Cipher
 import javax.net.ssl.HttpsURLConnection
 
 enum class LookupMode(val title: String) {
-    ROW_SMARTPHONE("ROW Smartphones"),
-    RETCN_SMARTPHONE("RETCN Smartphones"),
+    ROW_SMARTPHONE("Lookup by IMEI"),
+    RETCN_SMARTPHONE("Lookup by device info"),
     TABLET("Tablets"),
     BY_MODEL("Lookup by Model"),
 }
