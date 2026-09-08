@@ -23,7 +23,12 @@ class CurrentDeviceInfoReader(context: Context) {
     fun isSupportedDevice(): Boolean = systemProperty("ro.product.brand")
         .ifBlank { Build.BRAND }
         .trim()
-        .let { brand -> brand.equals("lenovo", ignoreCase = true) || brand.equals("motorola", ignoreCase = true)  || brand.equals("fcnt", ignoreCase = true) || brand.equals("nec", ignoreCase = true) }
+        .let { brand ->
+            brand.equals("lenovo", ignoreCase = true) ||
+                brand.equals("motorola", ignoreCase = true) ||
+                brand.equals("fcnt", ignoreCase = true) ||
+                brand.equals("nec", ignoreCase = true)
+        }
 
     @SuppressLint("MissingPermission", "HardwareIds")
     fun read(): CurrentDeviceInfo? {
@@ -32,25 +37,68 @@ class CurrentDeviceInfoReader(context: Context) {
         val hardware = systemProperty("ro.hardware")
         return CurrentDeviceInfo(
             imei = currentDeviceImei(),
-            serialNumber = systemProperty("ro.serialno"),
-            model = systemProperty("ro.product.model"),
+            serialNumber = firstSystemProperty(
+                "ro.serialno",
+                "sys.customsn.showcode",
+                "ro.lenovosn2",
+                "persist.radio.factory_phone_sn",
+                "gsm.lenovosn2",
+                "persist.sys.snvalue",
+                "ro.odm.lenovo.sn",
+            ),
+            model = systemProperty("ro.boot.hardware.sku"),
             carrier = systemProperty("ro.carrier"),
             fingerprint = systemProperty("ro.build.fingerprint"),
             platform = if (hardware.equals("qcom", ignoreCase = true)) Platform.QUALCOMM else Platform.MEDIATEK,
-            fsgVersion = systemProperty("vendor.ril.baseband.config.version"),
+            fsgVersion = firstSystemProperty(
+                "vendor.ril.baseband.config.version",
+                "ril.baseband.config.version",
+                "persist.radio.baseband.config.version",
+            ),
             simCount = if (systemProperty("ro.vendor.hw.dualsim").equals("true", ignoreCase = true)) 2 else 1,
         )
     }
 
     @Suppress("DEPRECATION")
     @SuppressLint("MissingPermission", "HardwareIds")
-    private fun currentDeviceImei(): String = runCatching {
-        val telephony = appContext.getSystemService(TelephonyManager::class.java) ?: return ""
+    private fun currentDeviceImei(): String = telephonyImei().ifBlank {
+        firstSystemProperty("device.imei1", "gsm.imei1")
+    }
+
+    @Suppress("DEPRECATION")
+    @SuppressLint("MissingPermission", "HardwareIds")
+    private fun telephonyImei(): String = runCatching {
+        val telephony = appContext.getSystemService(TelephonyManager::class.java) ?: return@runCatching ""
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) telephony.getImei(0).orEmpty()
         else telephony.getDeviceId(0).orEmpty()
     }.getOrDefault("")
 
-    private fun systemProperty(name: String): String = runCatching {
+    private fun firstSystemProperty(vararg names: String): String = names
+        .asSequence()
+        .map(::systemProperty)
+        .firstOrNull(String::isNotBlank)
+        .orEmpty()
+
+    /**
+     * Accesses Android properties through getprop first because reflection on the hidden
+     * android.os.SystemProperties API is blocked on many current Android releases.
+     */
+    private fun systemProperty(name: String): String = propertyFromGetprop(name).ifBlank {
+        propertyFromHiddenApi(name)
+    }
+
+    private fun propertyFromGetprop(name: String): String = runCatching {
+        val process = ProcessBuilder("/system/bin/getprop", name)
+            .redirectErrorStream(true)
+            .start()
+        try {
+            process.inputStream.bufferedReader().use { reader -> reader.readText().trim() }
+        } finally {
+            process.destroy()
+        }
+    }.getOrDefault("")
+
+    private fun propertyFromHiddenApi(name: String): String = runCatching {
         val systemProperties = Class.forName("android.os.SystemProperties")
         systemProperties.getMethod("get", String::class.java, String::class.java)
             .invoke(null, name, "") as String
