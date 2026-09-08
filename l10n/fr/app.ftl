@@ -165,3 +165,7 @@ history-manage = Gérer
 history-remove = Supprimer ({ $count })
 history-done = Terminé
 history-select-all = Tout sélectionner
+retcn-adb-help-title = Obtenir { $field } avec ADB
+retcn-adb-help-instructions = Connectez l’appareil avec le débogage USB activé, puis exécutez :
+retcn-adb-help-close = Fermer
+retcn-adb-help-copy = Copier la commande

@@ -165,3 +165,7 @@ history-manage = 관리
 history-remove = 제거 ({ $count })
 history-done = 완료
 history-select-all = 모두 선택
+retcn-adb-help-title = ADB로 { $field } 가져오기
+retcn-adb-help-instructions = USB 디버깅을 활성화한 기기를 연결한 후 다음을 실행하세요:
+retcn-adb-help-close = 닫기
+retcn-adb-help-copy = 명령어 복사

@@ -165,3 +165,7 @@ history-manage = Administrar
 history-remove = Eliminar ({ $count })
 history-done = Listo
 history-select-all = Seleccionar todo
+retcn-adb-help-title = Obtener { $field } mediante ADB
+retcn-adb-help-instructions = Conecte el dispositivo con la depuración USB activada y ejecute:
+retcn-adb-help-close = Cerrar
+retcn-adb-help-copy = Copiar comando

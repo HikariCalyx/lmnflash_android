@@ -165,3 +165,7 @@ history-manage = 管理
 history-remove = 削除 ({ $count })
 history-done = 完了
 history-select-all = すべて選択
+retcn-adb-help-title = ADB で { $field } を取得
+retcn-adb-help-instructions = USB デバッグを有効にしたデバイスを接続してから、次を実行します：
+retcn-adb-help-close = 閉じる
+retcn-adb-help-copy = コマンドをコピー

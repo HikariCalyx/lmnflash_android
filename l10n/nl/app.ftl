@@ -165,3 +165,7 @@ history-manage = Beheren
 history-remove = Verwijderen ({ $count })
 history-done = Gereed
 history-select-all = Alles selecteren
+retcn-adb-help-title = { $field } ophalen met ADB
+retcn-adb-help-instructions = Verbind het apparaat met USB-foutopsporing ingeschakeld en voer daarna uit:
+retcn-adb-help-close = Sluiten
+retcn-adb-help-copy = Opdracht kopiëren

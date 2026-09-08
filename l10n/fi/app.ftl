@@ -165,3 +165,7 @@ history-manage = Hallitse
 history-remove = Poista ({ $count })
 history-done = Valmis
 history-select-all = Valitse kaikki
+retcn-adb-help-title = Hae { $field } ADB:llä
+retcn-adb-help-instructions = Yhdistä laite USB-virheenkorjaus käytössä ja suorita sitten:
+retcn-adb-help-close = Sulje
+retcn-adb-help-copy = Kopioi komento

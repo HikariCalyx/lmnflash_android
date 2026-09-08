@@ -165,3 +165,7 @@ history-manage = Керувати
 history-remove = Видалити ({ $count })
 history-done = Готово
 history-select-all = Вибрати все
+retcn-adb-help-title = Отримати { $field } за допомогою ADB
+retcn-adb-help-instructions = Підключіть пристрій з увімкненим налагодженням USB, а потім виконайте:
+retcn-adb-help-close = Закрити
+retcn-adb-help-copy = Копіювати команду

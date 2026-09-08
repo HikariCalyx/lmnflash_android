@@ -165,3 +165,7 @@ history-manage = Administrer
 history-remove = Fjern ({ $count })
 history-done = Udført
 history-select-all = Vælg alle
+retcn-adb-help-title = Hent { $field } med ADB
+retcn-adb-help-instructions = Tilslut enheden med USB-fejlfinding aktiveret, og kør derefter:
+retcn-adb-help-close = Luk
+retcn-adb-help-copy = Kopiér kommando

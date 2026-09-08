@@ -165,3 +165,7 @@ history-manage = Gestisci
 history-remove = Rimuovi ({ $count })
 history-done = Fatto
 history-select-all = Seleziona tutto
+retcn-adb-help-title = Ottieni { $field } con ADB
+retcn-adb-help-instructions = Collega il dispositivo con il debug USB attivato, quindi esegui:
+retcn-adb-help-close = Chiudi
+retcn-adb-help-copy = Copia comando

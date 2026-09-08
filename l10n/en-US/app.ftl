@@ -167,3 +167,7 @@ history-remove = Remove ({ $count })
 history-done = Done
 
 history-select-all = Select All
+retcn-adb-help-title = Get { $field } using ADB
+retcn-adb-help-instructions = Connect the device with USB debugging enabled, then run:
+retcn-adb-help-close = Close
+retcn-adb-help-copy = Copy command

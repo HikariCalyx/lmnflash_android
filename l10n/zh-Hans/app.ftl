@@ -165,3 +165,7 @@ history-manage = 管理
 history-remove = 移除（{ $count }）
 history-done = 完成
 history-select-all = 全选
+retcn-adb-help-title = 使用 ADB 获取{ $field }
+retcn-adb-help-instructions = 连接已启用 USB 调试的设备，然后运行：
+retcn-adb-help-close = 关闭
+retcn-adb-help-copy = 复制命令

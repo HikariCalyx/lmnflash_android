@@ -165,3 +165,7 @@ history-manage = 管理
 history-remove = 移除（{ $count }）
 history-done = 完成
 history-select-all = 全選
+retcn-adb-help-title = 使用 ADB 取得 { $field }
+retcn-adb-help-instructions = 連接已啟用 USB 偵錯的裝置，然後執行：
+retcn-adb-help-close = 關閉
+retcn-adb-help-copy = 複製指令

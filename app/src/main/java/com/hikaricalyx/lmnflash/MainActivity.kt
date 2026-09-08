@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -442,8 +443,24 @@ private fun RetcnForm(
     ) { value -> onUpdate { it.copy(imei = value.filter(Char::isDigit)) } }
     Field(t.text("retcn-sn-label"), f.serialNumber) { value -> onUpdate { it.copy(serialNumber = value) } }
     Field(t.text("retcn-model-label"), f.model) { value -> onUpdate { it.copy(model = value) } }
-    Field(t.text("retcn-carrier-label"), f.carrier) { value -> onUpdate { it.copy(carrier = value) } }
-    Field(t.text("retcn-fingerprint-label"), f.fingerprint) { value -> onUpdate { it.copy(fingerprint = value) } }
+    Field(
+        t.text("retcn-carrier-label"),
+        f.carrier,
+        helpTitle = t.text("retcn-adb-help-title", "field" to t.text("retcn-carrier-label")),
+        helpMessage = t.text("retcn-adb-help-instructions"),
+        helpCommand = "adb shell getprop ro.carrier",
+        helpCopyLabel = t.text("retcn-adb-help-copy"),
+        helpCloseLabel = t.text("retcn-adb-help-close"),
+    ) { value -> onUpdate { it.copy(carrier = value) } }
+    Field(
+        t.text("retcn-fingerprint-label"),
+        f.fingerprint,
+        helpTitle = t.text("retcn-adb-help-title", "field" to t.text("retcn-fingerprint-label")),
+        helpMessage = t.text("retcn-adb-help-instructions"),
+        helpCommand = "adb shell getprop ro.build.fingerprint",
+        helpCopyLabel = t.text("retcn-adb-help-copy"),
+        helpCloseLabel = t.text("retcn-adb-help-close"),
+    ) { value -> onUpdate { it.copy(fingerprint = value) } }
     PlatformMenu(t, f.platform) { value -> onUpdate { it.copy(platform = value) } }
     AnimatedContent(
         targetState = f.platform,
@@ -454,7 +471,15 @@ private fun RetcnForm(
         label = "RETCN platform details",
     ) { platform ->
         if (platform == Platform.QUALCOMM) {
-            Field(t.text("retcn-fsg-label"), f.fsgVersion) { value -> onUpdate { it.copy(fsgVersion = value) } }
+            Field(
+                t.text("retcn-fsg-label"),
+                f.fsgVersion,
+                helpTitle = t.text("retcn-adb-help-title", "field" to t.text("retcn-fsg-label")),
+                helpMessage = t.text("retcn-adb-help-instructions"),
+                helpCommand = "adb shell getprop vendor.ril.baseband.config.version",
+                helpCopyLabel = t.text("retcn-adb-help-copy"),
+                helpCloseLabel = t.text("retcn-adb-help-close"),
+            ) { value -> onUpdate { it.copy(fsgVersion = value) } }
         } else {
             SimMenu(t, f.simCount) { value -> onUpdate { it.copy(simCount = value) } }
         }
@@ -501,9 +526,16 @@ private fun Field(
     placeholder: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     isError: Boolean = false,
+    helpTitle: String? = null,
+    helpMessage: String? = null,
+    helpCommand: String? = null,
+    helpCopyLabel: String = "",
+    helpCloseLabel: String = "",
     onChange: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    var showHelp by remember(helpTitle, helpMessage, helpCommand) { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -511,10 +543,29 @@ private fun Field(
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
         isError = isError,
+        trailingIcon = if (helpTitle != null && helpMessage != null && helpCommand != null) {
+            { TextButton(onClick = { showHelp = true }) { Text("?") } }
+        } else null,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
     )
+    if (showHelp && helpTitle != null && helpMessage != null && helpCommand != null) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(helpTitle) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(helpMessage)
+                    Text(helpCommand)
+                    OutlinedButton(onClick = { copyToClipboard(context, helpCommand) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(helpCopyLabel)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text(helpCloseLabel) } },
+        )
+    }
 }
 
 private fun isValidImei(imei: String): Boolean = com.hikaricalyx.lmnflash.firmware.validateImei(imei).isSuccess
