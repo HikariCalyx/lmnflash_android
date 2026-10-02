@@ -3,6 +3,7 @@ package com.hikaricalyx.lmnflash.firmwareflash
 import android.content.Context
 import android.hardware.usb.UsbManager
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val MISMATCH_CONFIRMATION_SECONDS = 10
+private const val RELOCK_WARNING_SECONDS = 30
 private const val MAX_LOG_LINES = 500
 
 data class FirmwareFlashUiState(
@@ -43,6 +45,11 @@ data class FirmwareFlashUiState(
     val infoError: String? = null,
     val hideSensitiveInfo: Boolean = false,
     val customCommandExecuting: Boolean = false,
+    val customCommandImageUri: Uri? = null,
+    val customCommandImageName: String? = null,
+    val customCommandProgress: Pair<Long, Long>? = null,
+    val customCommandWarning: Boolean = false,
+    val customCommandWarningCountdown: Int = 0,
     val customCommandResponse: List<String> = emptyList(),
     val customCommandError: String? = null,
     val error: String? = null,
@@ -70,6 +77,7 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
     private var operationId = 0L
     private var infoRequestId = 0L
     private var pendingCandidate: FastbootCandidate? = null
+    private var pendingCustomCommand: String? = null
 
     var state by mutableStateOf(FirmwareFlashUiState())
         private set
@@ -220,11 +228,27 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
         }
     }
 
-    /** Sends one non-flash Fastboot command and retains every raw reply packet for the custom command page. */
+    fun setCustomCommandImage(uri: Uri) {
+        val name = appContext.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)) else null
+        } ?: uri.lastPathSegment ?: "selected image"
+        state = state.copy(customCommandImageUri = uri, customCommandImageName = name, customCommandError = null)
+    }
+
+    /** Sends a non-flash command or streams one selected image for `flash <partition>`. */
     fun executeCustomCommand(command: String) {
         val candidate = state.selected ?: return
         if (state.busy || state.confirming || state.editingOperations) return
         val normalized = command.trim()
+        val parts = normalized.split(Regex("\\s+")).filter(String::isNotBlank)
+        val isFlash = parts.firstOrNull()?.equals("flash", ignoreCase = true) == true
+        val isErase = parts.firstOrNull()?.equals("erase", ignoreCase = true) == true
         when {
             normalized.isBlank() -> {
                 state = state.copy(customCommandError = "Enter a Fastboot command.")
@@ -234,25 +258,98 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
                 state = state.copy(customCommandError = "Omit the word fastboot from the command.")
                 return
             }
-            normalized.startsWith("flash", ignoreCase = true) -> {
-                state = state.copy(customCommandError = "Flash commands are unsupported on this page.")
+            isFlash && parts.size != 2 -> {
+                state = state.copy(customCommandError = "Use flash <partition>, then select an image file.")
                 return
             }
-            normalized.startsWith("download", ignoreCase = true) -> {
+            isFlash && state.customCommandImageUri == null -> {
+                state = state.copy(customCommandError = "Select an image file for the flash command.")
+                return
+            }
+            isErase && parts.size != 2 -> {
+                state = state.copy(customCommandError = "Use erase <partition>.")
+                return
+            }
+            parts.firstOrNull()?.equals("download", ignoreCase = true) == true -> {
                 state = state.copy(customCommandError = "Download commands are unsupported because they require a payload.")
                 return
             }
         }
-        state = state.copy(customCommandExecuting = true, customCommandResponse = emptyList(), customCommandError = null)
+        if (parts.firstOrNull()?.equals("oem", ignoreCase = true) == true && parts.getOrNull(1)?.equals("lock", ignoreCase = true) == true) {
+            val id = ++operationId
+            pendingCustomCommand = normalized
+            state = state.copy(customCommandWarning = true, customCommandWarningCountdown = RELOCK_WARNING_SECONDS, customCommandResponse = emptyList(), customCommandError = null)
+            startCustomWarningCountdown(id)
+            return
+        }
+        runCustomCommand(candidate, normalized)
+    }
+
+    /** Runs the validated command; relocking commands reach this only after the warning is confirmed. */
+    private fun runCustomCommand(candidate: FastbootCandidate, normalized: String) {
+        val parts = normalized.split(Regex("\\s+")).filter(String::isNotBlank)
+        val isFlash = parts.firstOrNull()?.equals("flash", ignoreCase = true) == true
+        val isErase = parts.firstOrNull()?.equals("erase", ignoreCase = true) == true
+        val imageUri = state.customCommandImageUri
+        val partition = if (isFlash || isErase) parts[1] else null
+        // Fastboot expects erase:<partition>; accept the natural "erase <partition>" spelling.
+        val command = if (isErase) "erase:$partition" else normalized
+        val id = ++operationId
+        state = state.copy(customCommandExecuting = true, customCommandWarning = false, customCommandWarningCountdown = 0, customCommandProgress = null, customCommandResponse = emptyList(), customCommandError = null)
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { client.executeCustomCommand(candidate, normalized) } }
-                .onSuccess { response -> state = state.copy(customCommandExecuting = false, customCommandResponse = response) }
-                .onFailure { error -> state = state.copy(customCommandExecuting = false, customCommandError = error.message ?: "Fastboot command failed") }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    if (isFlash) {
+                        val uri = requireNotNull(imageUri) { "Select an image file for the flash command." }
+                        val size = appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+                        require(size > 0) { "The selected image size could not be determined." }
+                        appContext.contentResolver.openInputStream(uri)?.use { input ->
+                            client.executeCustomFlash(candidate, requireNotNull(partition), input, size) { done, total ->
+                                updateIfCurrent(id) { it.copy(customCommandProgress = done to total) }
+                            }
+                        } ?: error("Unable to open the selected image file.")
+                    } else {
+                        client.executeCustomCommand(candidate, command)
+                    }
+                }
+            }.onSuccess { response ->
+                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandProgress = null, customCommandResponse = response)
+            }.onFailure { error ->
+                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandProgress = null, customCommandError = error.message ?: "Fastboot command failed")
+            }
         }
     }
 
+    /** Starts the relocking warning timer; the command is held until the user confirms. */
+    private fun startCustomWarningCountdown(id: Long) {
+        viewModelScope.launch {
+            while (id == operationId && state.customCommandWarning && state.customCommandWarningCountdown > 0) {
+                delay(1_000)
+                if (id == operationId && state.customCommandWarning) state = state.copy(customCommandWarningCountdown = (state.customCommandWarningCountdown - 1).coerceAtLeast(0))
+            }
+        }
+    }
+
+    /** Runs the pending relocking command once the warning countdown has elapsed. */
+    fun confirmCustomCommand() {
+        val candidate = state.selected ?: return
+        val pending = pendingCustomCommand ?: return
+        if (!state.customCommandWarning || state.customCommandWarningCountdown > 0 || state.customCommandExecuting) return
+        pendingCustomCommand = null
+        runCustomCommand(candidate, pending)
+    }
+
+    fun dismissCustomCommandWarning() {
+        if (state.customCommandExecuting) return
+        pendingCustomCommand = null
+        state = state.copy(customCommandWarning = false, customCommandWarningCountdown = 0)
+    }
+
     fun clearCustomCommandOutput() {
-        if (!state.customCommandExecuting) state = state.copy(customCommandResponse = emptyList(), customCommandError = null)
+        if (!state.customCommandExecuting) {
+            pendingCustomCommand = null
+            state = state.copy(customCommandImageUri = null, customCommandImageName = null, customCommandProgress = null, customCommandWarning = false, customCommandWarningCountdown = 0, customCommandResponse = emptyList(), customCommandError = null)
+        }
     }
 
     fun readInfo() {

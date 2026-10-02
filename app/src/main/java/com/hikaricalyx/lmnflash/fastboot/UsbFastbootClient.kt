@@ -144,6 +144,16 @@ class UsbFastbootClient(private val usbManager: UsbManager) {
         session.rawCommand(command)
     }
 
+    /** Streams a user-selected image through Fastboot download, then flashes the requested partition. */
+    fun executeCustomFlash(candidate: FastbootCandidate, partition: String, input: InputStream, size: Long, onProgress: (Long, Long) -> Unit): List<String> = withSession(candidate) { session ->
+        session.requireMotorola()
+        val handshake = mutableListOf<String>()
+        // Mirror the firmware flow: download() consumes the bootloader's post-download acknowledgement
+        // before the flash command is sent, otherwise the two responses get out of sync.
+        session.download(size, input, { done -> onProgress(done, size) }) { line -> handshake += line }
+        handshake + session.rawCommand("flash:$partition", FLASH_TIMEOUT_MS)
+    }
+
     /** Runs the supplied safe subset in original package order; it cannot add or alter commands. */
     fun flash(
         candidate: FastbootCandidate,
@@ -349,10 +359,10 @@ private class Session(
         return commandResponse(timeoutMs, log)
     }
 
-    fun rawCommand(command: String): List<String> {
+    fun rawCommand(command: String, timeoutMs: Int = COMMAND_TIMEOUT_MS): List<String> {
         write(command.toByteArray(StandardCharsets.US_ASCII))
         val packets = mutableListOf<String>()
-        val deadline = SystemClock.elapsedRealtime() + COMMAND_TIMEOUT_MS
+        val deadline = SystemClock.elapsedRealtime() + timeoutMs
         repeat(MAX_RESPONSE_PACKETS) {
             val remaining = (deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0)
             if (remaining == 0L) error("Fastboot command timed out waiting for a response")

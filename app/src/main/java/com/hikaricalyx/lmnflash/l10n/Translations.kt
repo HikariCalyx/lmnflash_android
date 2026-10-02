@@ -92,6 +92,11 @@ class Translator private constructor(private val messages: Map<String, String>) 
         message == "Failed to get unlock data: the device did not return its Device ID." -> text("fastboot-error-unlock-data-unavailable")
         message == "No unlock data returned by the device." -> text("fastboot-error-unlock-data-empty")
         message == "Fastboot operation failed" || message == "Unable to read device" -> text("fastboot-error-operation")
+        message == "Use flash <partition>, then select an image file." -> text("firmware-flash-custom-error-partition")
+        message == "Use erase <partition>." -> text("firmware-flash-custom-error-erase-partition")
+        message == "Select an image file for the flash command." -> text("firmware-flash-custom-error-image")
+        message == "The selected image size could not be determined." -> text("firmware-flash-custom-error-size")
+        message == "Unable to open the selected image file." -> text("firmware-flash-custom-error-open")
         else -> message
     }
 

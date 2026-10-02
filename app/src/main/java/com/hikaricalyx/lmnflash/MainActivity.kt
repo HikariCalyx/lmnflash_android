@@ -884,6 +884,8 @@ private fun CustomFastbootCommandScreen(
     onReturn: () -> Unit,
 ) {
     var command by rememberSaveable { mutableStateOf("") }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::setCustomCommandImage) }
+    val flashCommand = command.trim().split(Regex("\\s+")).firstOrNull()?.equals("flash", true) == true
     BackHandler(onBack = onReturn)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -897,7 +899,7 @@ private fun CustomFastbootCommandScreen(
     ) {
         item { Text(t.text("firmware-flash-custom-title"), style = MaterialTheme.typography.titleLarge) }
         item { Text(t.text("firmware-flash-custom-instructions"), style = MaterialTheme.typography.bodyMedium) }
-        item { Text(t.text("firmware-flash-custom-flash-unsupported"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+        item { Text(t.text("firmware-flash-custom-flash-hint"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
         item {
             OutlinedTextField(
                 value = command,
@@ -908,6 +910,18 @@ private fun CustomFastbootCommandScreen(
                 singleLine = true,
             )
         }
+        if (flashCommand) item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = { imagePicker.launch(arrayOf("*/*")) },
+                    enabled = !state.customCommandExecuting,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(t.text("firmware-flash-custom-select-image")) }
+                state.customCommandImageName?.let { name ->
+                    Text(t.text("firmware-flash-custom-image", "name" to name), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
         item {
             Button(
                 onClick = { viewModel.executeCustomCommand(command) },
@@ -916,10 +930,15 @@ private fun CustomFastbootCommandScreen(
             ) { Text(t.text(if (state.customCommandExecuting) "firmware-flash-custom-executing" else "firmware-flash-custom-execute")) }
         }
         if (state.customCommandExecuting) item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
-                Text(t.text("firmware-flash-custom-executing"))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(t.text("firmware-flash-custom-executing"))
+                }
+                state.customCommandProgress?.let { (done, total) ->
+                    if (total > 0) LinearProgressIndicator(progress = { (done.toFloat() / total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                }
             }
         }
         state.customCommandError?.let { error -> item { ErrorText(t.error(error)) } }
@@ -928,6 +947,19 @@ private fun CustomFastbootCommandScreen(
             item { LogTextBox(state.customCommandResponse.joinToString("\n"), Modifier.height(280.dp)) }
         }
         item { OutlinedButton(onClick = onReturn, enabled = !state.customCommandExecuting, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-return")) } }
+    }
+    if (state.customCommandWarning) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissCustomCommandWarning,
+            title = { Text(t.text("firmware-flash-custom-relock-title")) },
+            text = { Text(t.text("firmware-flash-custom-relock-warning")) },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmCustomCommand, enabled = state.customCommandWarningCountdown == 0) {
+                    Text(if (state.customCommandWarningCountdown == 0) t.text("firmware-flash-custom-relock-proceed") else t.text("firmware-flash-wait", "seconds" to state.customCommandWarningCountdown))
+                }
+            },
+            dismissButton = { TextButton(onClick = viewModel::dismissCustomCommandWarning) { Text(t.text("login-cancel")) } },
+        )
     }
 }
 
