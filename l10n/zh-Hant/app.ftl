@@ -8,6 +8,17 @@ navigation-menu = 導覽選單
 smartphone-flash-placeholder = 智慧型手機刷寫功能將在未來版本推出。
 
 flash-bootloader-title = Bootloader 解鎖
+flash-bootloader-smartphone = 智慧型手機
+flash-bootloader-tablet = 平板電腦
+flash-bootloader-usb-permission = 正在等待 USB 授權…
+flash-bootloader-guided = 引導式
+flash-bootloader-unlock-confirmation = 解鎖 Bootloader 可能會清除已連接手機上的所有資料。請在查看手機上的警告後再確認。
+retcn-read-device = 從裝置讀取
+retcn-read-device-choose = 選擇讀取裝置資訊的方式。
+retcn-read-adb-usb = 透過 USB 偵錯使用 ADB
+retcn-read-adb-wireless = 透過無線偵錯使用 ADB
+retcn-fill-fastboot-permission = 正在等待 USB 授權…
+retcn-fill-fastboot-not-motorola = 已連接的 Fastboot 裝置不是受支援的 Motorola 裝置
 flash-bootloader-android-transport-unavailable = Android 應用程式尚不支援 Fastboot 指令。請使用電腦讀取 Device ID 並完成解鎖。
 flash-bootloader-button = 解鎖
 

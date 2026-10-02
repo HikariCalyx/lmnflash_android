@@ -8,6 +8,17 @@ navigation-menu = Navigationsmenü
 smartphone-flash-placeholder = Smartphone-Flash wird in einem zukünftigen Update verfügbar sein.
 
 flash-bootloader-title = Bootloader-Entsperrung
+flash-bootloader-smartphone = Smartphone
+flash-bootloader-tablet = Tablet
+flash-bootloader-usb-permission = Warte auf USB-Berechtigung…
+flash-bootloader-guided = Geführt
+flash-bootloader-unlock-confirmation = Das Entsperren des Bootloaders kann alle Daten auf dem verbundenen Telefon löschen. Bestätige erst, nachdem du die Warnung auf dem Telefon geprüft hast.
+retcn-read-device = Vom Gerät lesen
+retcn-read-device-choose = Wähle, wie Geräteinformationen gelesen werden sollen.
+retcn-read-adb-usb = ADB über USB-Debugging
+retcn-read-adb-wireless = ADB über Wireless-Debugging
+retcn-fill-fastboot-permission = Warte auf USB-Berechtigung…
+retcn-fill-fastboot-not-motorola = Das verbundene Fastboot-Gerät ist kein unterstütztes Motorola-Gerät
 flash-bootloader-android-transport-unavailable = Fastboot-Befehle sind in der Android-App noch nicht verfügbar. Verwende einen Computer, um die Device ID zu lesen und die Entsperrung abzuschließen.
 flash-bootloader-button = Bootloader entsperren
 

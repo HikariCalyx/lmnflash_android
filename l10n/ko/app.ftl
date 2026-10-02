@@ -8,6 +8,17 @@ navigation-menu = 탐색 메뉴
 smartphone-flash-placeholder = 스마트폰 플래시 기능은 향후 업데이트에서 제공될 예정입니다.
 
 flash-bootloader-title = 부트로더 잠금 해제
+flash-bootloader-smartphone = 스마트폰
+flash-bootloader-tablet = 태블릿
+flash-bootloader-usb-permission = USB 권한을 기다리는 중…
+flash-bootloader-guided = 안내형
+flash-bootloader-unlock-confirmation = 부트로더 잠금을 해제하면 연결된 휴대전화의 모든 데이터가 삭제될 수 있습니다. 휴대전화의 경고를 확인한 후에만 확인하세요.
+retcn-read-device = 기기에서 읽기
+retcn-read-device-choose = 기기 정보를 읽는 방법을 선택하세요.
+retcn-read-adb-usb = USB 디버깅을 통한 ADB
+retcn-read-adb-wireless = 무선 디버깅을 통한 ADB
+retcn-fill-fastboot-permission = USB 권한을 기다리는 중…
+retcn-fill-fastboot-not-motorola = 연결된 Fastboot 기기는 지원되는 Motorola 기기가 아닙니다
 flash-bootloader-android-transport-unavailable = Android 앱에서는 아직 Fastboot 명령을 사용할 수 없습니다. 컴퓨터에서 Device ID를 읽고 잠금 해제를 완료하세요.
 flash-bootloader-button = 잠금 해제
 

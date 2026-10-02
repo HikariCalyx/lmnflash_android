@@ -8,6 +8,17 @@ navigation-menu = Меню навигации
 smartphone-flash-placeholder = Прошивка смартфона будет доступна в будущем обновлении.
 
 flash-bootloader-title = Разблокировка загрузчика
+flash-bootloader-smartphone = Смартфон
+flash-bootloader-tablet = Планшет
+flash-bootloader-usb-permission = Ожидание разрешения USB…
+flash-bootloader-guided = С подсказками
+flash-bootloader-unlock-confirmation = Разблокировка загрузчика может стереть все данные на подключённом телефоне. Подтверждайте только после ознакомления с предупреждением на телефоне.
+retcn-read-device = Читать с устройства
+retcn-read-device-choose = Выберите способ чтения информации об устройстве.
+retcn-read-adb-usb = ADB через отладку по USB
+retcn-read-adb-wireless = ADB через беспроводную отладку
+retcn-fill-fastboot-permission = Ожидание разрешения USB…
+retcn-fill-fastboot-not-motorola = Подключённое Fastboot-устройство не является поддерживаемым устройством Motorola
 flash-bootloader-android-transport-unavailable = Команды Fastboot пока недоступны в приложении Android. Используйте компьютер, чтобы получить Device ID и завершить разблокировку.
 flash-bootloader-button = Разблокировать загрузчик
 

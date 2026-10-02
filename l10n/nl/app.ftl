@@ -8,6 +8,17 @@ navigation-menu = Navigatiemenu
 smartphone-flash-placeholder = Smartphone flashen wordt beschikbaar in een toekomstige update.
 
 flash-bootloader-title = Bootloader ontgrendelen
+flash-bootloader-smartphone = Smartphone
+flash-bootloader-tablet = Tablet
+flash-bootloader-usb-permission = Wachten op USB-toestemming…
+flash-bootloader-guided = Begeleid
+flash-bootloader-unlock-confirmation = Het ontgrendelen van de bootloader kan alle gegevens op de aangesloten telefoon wissen. Bevestig pas nadat je de waarschuwing op de telefoon hebt gecontroleerd.
+retcn-read-device = Lezen van apparaat
+retcn-read-device-choose = Kies hoe apparaatinformatie moet worden gelezen.
+retcn-read-adb-usb = ADB via USB-foutopsporing
+retcn-read-adb-wireless = ADB via draadloze foutopsporing
+retcn-fill-fastboot-permission = Wachten op USB-toestemming…
+retcn-fill-fastboot-not-motorola = Het aangesloten Fastboot-apparaat is geen ondersteund Motorola-apparaat
 flash-bootloader-android-transport-unavailable = Fastboot-opdrachten zijn nog niet beschikbaar in de Android-app. Gebruik een computer om de Device ID te lezen en het ontgrendelen te voltooien.
 flash-bootloader-button = Ontgrendel de bootloader
 

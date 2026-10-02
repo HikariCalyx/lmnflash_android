@@ -8,6 +8,17 @@ navigation-menu = Menú de navegación
 smartphone-flash-placeholder = El flash del smartphone estará disponible en una futura actualización.
 
 flash-bootloader-title = Desbloqueo del bootloader
+flash-bootloader-smartphone = Smartphone
+flash-bootloader-tablet = Tableta
+flash-bootloader-usb-permission = Esperando permiso de USB…
+flash-bootloader-guided = Guiado
+flash-bootloader-unlock-confirmation = Desbloquear el bootloader puede borrar todos los datos del teléfono conectado. Confirma solo después de revisar la advertencia en el teléfono.
+retcn-read-device = Leer del dispositivo
+retcn-read-device-choose = Elige cómo leer la información del dispositivo.
+retcn-read-adb-usb = ADB mediante depuración USB
+retcn-read-adb-wireless = ADB mediante depuración inalámbrica
+retcn-fill-fastboot-permission = Esperando permiso de USB…
+retcn-fill-fastboot-not-motorola = El dispositivo Fastboot conectado no es un dispositivo Motorola compatible
 flash-bootloader-android-transport-unavailable = Los comandos Fastboot todavía no están disponibles en la aplicación Android. Usa un ordenador para leer el Device ID y completar el desbloqueo.
 flash-bootloader-button = Desbloquear el bootloader
 

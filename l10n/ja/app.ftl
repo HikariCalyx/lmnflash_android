@@ -8,6 +8,17 @@ navigation-menu = ナビゲーションメニュー
 smartphone-flash-placeholder = スマホ書き換えは今後のアップデートで利用可能になります。
 
 flash-bootloader-title = ブートローダーのロック解除
+flash-bootloader-smartphone = スマートフォン
+flash-bootloader-tablet = タブレット
+flash-bootloader-usb-permission = USB の許可を待機しています…
+flash-bootloader-guided = ガイド付き
+flash-bootloader-unlock-confirmation = ブートローダーのロック解除を行うと、接続した端末のすべてのデータが消去される場合があります。端末上の警告を確認してから実行してください。
+retcn-read-device = 端末から読み取る
+retcn-read-device-choose = 端末情報の読み取り方法を選択してください。
+retcn-read-adb-usb = USB デバッグ経由の ADB
+retcn-read-adb-wireless = ワイヤレス デバッグ経由の ADB
+retcn-fill-fastboot-permission = USB の許可を待機しています…
+retcn-fill-fastboot-not-motorola = 接続されている Fastboot 端末はサポート対象の Motorola 端末ではありません
 flash-bootloader-android-transport-unavailable = Android アプリでは Fastboot コマンドはまだ利用できません。Device ID の取得とロック解除の完了にはコンピューターを使用してください。
 flash-bootloader-button = ロックを解除
 

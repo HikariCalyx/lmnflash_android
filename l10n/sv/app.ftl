@@ -8,6 +8,17 @@ navigation-menu = Navigeringsmeny
 smartphone-flash-placeholder = Flash av smarttelefonen blir tillgängligt i en framtida uppdatering.
 
 flash-bootloader-title = Upplåsning av bootloader
+flash-bootloader-smartphone = Smarttelefon
+flash-bootloader-tablet = Surfplatta
+flash-bootloader-usb-permission = Väntar på USB-behörighet…
+flash-bootloader-guided = Guidad
+flash-bootloader-unlock-confirmation = Upplåsning av bootloadern kan radera all data på den anslutna telefonen. Bekräfta först efter att du har granskat varningen på telefonen.
+retcn-read-device = Läs från enhet
+retcn-read-device-choose = Välj hur enhetsinformation ska läsas.
+retcn-read-adb-usb = ADB via USB-felsökning
+retcn-read-adb-wireless = ADB via trådlös felsökning
+retcn-fill-fastboot-permission = Väntar på USB-behörighet…
+retcn-fill-fastboot-not-motorola = Den anslutna Fastboot-enheten är inte en Motorola-enhet som stöds
 flash-bootloader-android-transport-unavailable = Fastboot-kommandon är ännu inte tillgängliga i Android-appen. Använd en dator för att läsa Device ID och slutföra upplåsningen.
 flash-bootloader-button = Lås upp bootloader
 
