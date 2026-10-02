@@ -8,6 +8,7 @@ navigation-menu = 탐색 메뉴
 smartphone-flash-placeholder = 스마트폰 플래시 기능은 향후 업데이트에서 제공될 예정입니다.
 
 flash-bootloader-title = 부트로더 잠금 해제
+flash-bootloader-android-transport-unavailable = Android 앱에서는 아직 Fastboot 명령을 사용할 수 없습니다. 컴퓨터에서 Device ID를 읽고 잠금 해제를 완료하세요.
 flash-bootloader-button = 잠금 해제
 
 flash-bootloader-choose = 부트로더 잠금을 어떻게 해제할까요?

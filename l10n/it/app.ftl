@@ -8,6 +8,7 @@ navigation-menu = Menu di navigazione
 smartphone-flash-placeholder = Il flash dello smartphone sarà disponibile in un prossimo aggiornamento.
 
 flash-bootloader-title = Sblocco del bootloader
+flash-bootloader-android-transport-unavailable = I comandi Fastboot non sono ancora disponibili nell’app Android. Usa un computer per leggere il Device ID e completare lo sblocco.
 flash-bootloader-button = Sblocca il bootloader
 
 flash-bootloader-choose = Come vuoi sbloccare il bootloader?

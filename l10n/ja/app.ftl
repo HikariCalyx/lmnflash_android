@@ -8,6 +8,7 @@ navigation-menu = ナビゲーションメニュー
 smartphone-flash-placeholder = スマホ書き換えは今後のアップデートで利用可能になります。
 
 flash-bootloader-title = ブートローダーのロック解除
+flash-bootloader-android-transport-unavailable = Android アプリでは Fastboot コマンドはまだ利用できません。Device ID の取得とロック解除の完了にはコンピューターを使用してください。
 flash-bootloader-button = ロックを解除
 
 flash-bootloader-choose = ブートローダーのロックを解除する方法を選択してください

@@ -81,6 +81,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hikaricalyx.lmnflash.fastboot.BootloaderStatus
+import com.hikaricalyx.lmnflash.fastboot.BootloaderUnlockViewModel
+import com.hikaricalyx.lmnflash.fastboot.UnlockEligibility
 import com.hikaricalyx.lmnflash.firmware.CnTabletInfo
 import com.hikaricalyx.lmnflash.firmware.DeviceCategory
 import com.hikaricalyx.lmnflash.firmware.FirmwareInfo
@@ -192,7 +195,7 @@ private fun FirmwareLookupApp(
         }
     }
     when (appMode) {
-        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashPlaceholder(t, context, appMode) { appMode = it }
+        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashScreen(t, context, appMode) { appMode = it }
         AppMode.FIRMWARE_LOOKUP -> AnimatedContent(
             targetState = state.login,
             contentKey = { it::class },
@@ -442,12 +445,23 @@ private val AppMode.translationKey: String
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SmartphoneFlashPlaceholder(
+private fun SmartphoneFlashScreen(
     t: Translator,
     context: Context,
     selectedMode: AppMode,
     onModeSelected: (AppMode) -> Unit,
 ) {
+    val factory = remember(context) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = BootloaderUnlockViewModel(context.applicationContext) as T
+        }
+    }
+    val viewModel: BootloaderUnlockViewModel = viewModel(factory = factory)
+    val state = viewModel.state
+    var showChooser by rememberSaveable { mutableStateOf(false) }
+    var showManual by rememberSaveable { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -457,13 +471,153 @@ private fun SmartphoneFlashPlaceholder(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(t.text("smartphone-flash-placeholder"), style = MaterialTheme.typography.bodyLarge)
+        if (showManual) {
+            ManualBootloaderUnlockScreen(t, context, state, viewModel, onReturn = { showManual = false })
+        } else {
+            Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge)
+                        Button(onClick = { showChooser = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-button")) }
+                    }
+                }
+            }
         }
+    }
+
+    if (showChooser) {
+        AlertDialog(
+            onDismissRequest = { showChooser = false },
+            title = { Text(t.text("flash-bootloader-title")) },
+            text = { Text(t.text("flash-bootloader-choose")) },
+            confirmButton = {
+                Column {
+                    Button(onClick = { showChooser = false; showManual = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-smartphone")) }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-tablet")) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showChooser = false }) { Text(t.text("login-cancel")) } },
+        )
+    }
+    if (state.picker.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelPicker,
+            title = { Text(t.text("retcn-pick-device-title")) },
+            text = { Text(t.text("retcn-fill-fastboot-fetching")) },
+            confirmButton = {
+                Column {
+                    state.picker.forEach { candidate ->
+                        TextButton(onClick = { viewModel.selectDevice(candidate) }, modifier = Modifier.fillMaxWidth()) { Text(candidate.label) }
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = viewModel::cancelPicker) { Text(t.text("login-cancel")) } },
+        )
+    }
+}
+
+@Composable
+private fun ManualBootloaderUnlockScreen(
+    t: Translator,
+    context: Context,
+    state: com.hikaricalyx.lmnflash.fastboot.BootloaderUiState,
+    viewModel: BootloaderUnlockViewModel,
+    onReturn: () -> Unit,
+) {
+    var unlockKey by rememberSaveable { mutableStateOf("") }
+    var confirmUnlock by rememberSaveable { mutableStateOf(false) }
+    val busy = state.status is BootloaderStatus.RequestingPermission || state.status is BootloaderStatus.Reading || state.status is BootloaderStatus.Unlocking
+    val deviceIdPrefix = state.deviceId.trim().take(17)
+    val keyIsDeviceId = deviceIdPrefix.isNotEmpty() && unlockKey.trim().startsWith(deviceIdPrefix)
+    LaunchedEffect(state.deviceId) {
+        if (state.deviceId.isNotBlank()) copyToClipboard(context, state.deviceId)
+    }
+    BackHandler(onBack = onReturn)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Spacer(Modifier.height(4.dp)) }
+        item { TextButton(onClick = onReturn) { Text("< ${t.text("flash-bootloader-return")}") } }
+        item { Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge) }
+        item { Text(t.text("flash-bootloader-manual-desc"), style = MaterialTheme.typography.bodyMedium) }
+        item {
+            Button(onClick = { openBrowser(context, "https://en-us.support.motorola.com/app/standalone/bootloader/unlock-your-device-b") }, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("flash-bootloader-open-site"))
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = state.deviceId,
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(t.text("flash-bootloader-device-id")) },
+                singleLine = true,
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { copyToClipboard(context, state.deviceId); viewModel.markDeviceIdCopied() }, enabled = !busy && state.deviceId.isNotBlank()) { Text(t.text("flash-bootloader-copy")) }
+                OutlinedButton(onClick = viewModel::readUnlockData, enabled = !busy) { Text(t.text("flash-bootloader-read")) }
+            }
+        }
+        item { BootloaderStatusView(t, state.status) }
+        item { UnlockEligibilityView(t, state.eligibility) }
+        item { HorizontalDivider() }
+        item { Text(t.text("flash-bootloader-obtain-key"), style = MaterialTheme.typography.bodyMedium) }
+        item { Text(t.text("flash-bootloader-warranty-note"), style = MaterialTheme.typography.bodyMedium) }
+        item { Text(t.text("flash-bootloader-key-desc"), style = MaterialTheme.typography.bodyMedium) }
+        item { Field(t.text("flash-bootloader-unlock"), unlockKey, isError = keyIsDeviceId, onChange = { unlockKey = it }) }
+        if (keyIsDeviceId) item { ErrorText(t.text("flash-bootloader-key-is-device-id")) }
+        item {
+            Button(
+                onClick = { confirmUnlock = true },
+                enabled = !busy && unlockKey.isNotBlank() && !keyIsDeviceId,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (state.status is BootloaderStatus.Unlocking) t.text("flash-bootloader-unlocking") else t.text("flash-bootloader-unlock")) }
+        }
+        item { Spacer(Modifier.height(16.dp)) }
+    }
+    if (confirmUnlock) {
+        AlertDialog(
+            onDismissRequest = { confirmUnlock = false },
+            title = { Text(t.text("flash-bootloader-unlock")) },
+            text = { Text(t.text("flash-bootloader-unlock-confirmation")) },
+            confirmButton = { TextButton(onClick = { confirmUnlock = false; viewModel.unlock(unlockKey) }) { Text(t.text("flash-bootloader-unlock")) } },
+            dismissButton = { TextButton(onClick = { confirmUnlock = false }) { Text(t.text("login-cancel")) } },
+        )
+    }
+}
+
+@Composable
+private fun BootloaderStatusView(t: Translator, status: BootloaderStatus) {
+    when (status) {
+        BootloaderStatus.Idle -> Unit
+        BootloaderStatus.RequestingPermission -> Text(t.text("flash-bootloader-usb-permission"), style = MaterialTheme.typography.bodyMedium)
+        BootloaderStatus.Reading -> Text(t.text("retcn-fill-fastboot-fetching"), style = MaterialTheme.typography.bodyMedium)
+        BootloaderStatus.Unlocking -> Text(t.text("flash-bootloader-unlocking"), style = MaterialTheme.typography.bodyMedium)
+        is BootloaderStatus.Success -> Text(t.text(status.messageKey), style = MaterialTheme.typography.bodyMedium)
+        is BootloaderStatus.Error -> ErrorText(t.error(status.message))
+    }
+}
+
+@Composable
+private fun UnlockEligibilityView(t: Translator, eligibility: UnlockEligibility) {
+    when (eligibility) {
+        UnlockEligibility.Idle -> Unit
+        UnlockEligibility.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(t.text("flash-bootloader-checking"), style = MaterialTheme.typography.bodyMedium)
+        }
+        is UnlockEligibility.Result -> Text(
+            t.text(if (eligibility.qualified) "flash-bootloader-eligible" else "flash-bootloader-not-eligible"),
+            color = if (eligibility.qualified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

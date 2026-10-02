@@ -8,6 +8,7 @@ navigation-menu = Navigationsmenü
 smartphone-flash-placeholder = Smartphone-Flash wird in einem zukünftigen Update verfügbar sein.
 
 flash-bootloader-title = Bootloader-Entsperrung
+flash-bootloader-android-transport-unavailable = Fastboot-Befehle sind in der Android-App noch nicht verfügbar. Verwende einen Computer, um die Device ID zu lesen und die Entsperrung abzuschließen.
 flash-bootloader-button = Bootloader entsperren
 
 flash-bootloader-choose = Wie möchtest du den Bootloader entsperren?

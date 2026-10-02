@@ -8,6 +8,7 @@ navigation-menu = Navigointivalikko
 smartphone-flash-placeholder = Älypuhelimen flashaus on saatavilla tulevassa päivityksessä.
 
 flash-bootloader-title = Bootloaderin lukituksen avaus
+flash-bootloader-android-transport-unavailable = Fastboot-komennot eivät ole vielä käytettävissä Android-sovelluksessa. Käytä tietokonetta Device ID:n lukemiseen ja lukituksen avauksen viimeistelyyn.
 flash-bootloader-button = Avaa bootloaderin lukitus
 
 flash-bootloader-choose = Miten haluat avata bootloaderin lukituksen?

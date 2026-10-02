@@ -8,6 +8,7 @@ navigation-menu = Navigatiemenu
 smartphone-flash-placeholder = Smartphone flashen wordt beschikbaar in een toekomstige update.
 
 flash-bootloader-title = Bootloader ontgrendelen
+flash-bootloader-android-transport-unavailable = Fastboot-opdrachten zijn nog niet beschikbaar in de Android-app. Gebruik een computer om de Device ID te lezen en het ontgrendelen te voltooien.
 flash-bootloader-button = Ontgrendel de bootloader
 
 flash-bootloader-choose = Hoe wil je de bootloader ontgrendelen?

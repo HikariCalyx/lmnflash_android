@@ -8,6 +8,7 @@ navigation-menu = Меню навигации
 smartphone-flash-placeholder = Прошивка смартфона будет доступна в будущем обновлении.
 
 flash-bootloader-title = Разблокировка загрузчика
+flash-bootloader-android-transport-unavailable = Команды Fastboot пока недоступны в приложении Android. Используйте компьютер, чтобы получить Device ID и завершить разблокировку.
 flash-bootloader-button = Разблокировать загрузчик
 
 flash-bootloader-choose = Как вы хотите разблокировать загрузчик?

@@ -8,6 +8,7 @@ navigation-menu = 導覽選單
 smartphone-flash-placeholder = 智慧型手機刷寫功能將在未來版本推出。
 
 flash-bootloader-title = Bootloader 解鎖
+flash-bootloader-android-transport-unavailable = Android 應用程式尚不支援 Fastboot 指令。請使用電腦讀取 Device ID 並完成解鎖。
 flash-bootloader-button = 解鎖
 
 flash-bootloader-choose = 您希望如何解鎖 Bootloader？

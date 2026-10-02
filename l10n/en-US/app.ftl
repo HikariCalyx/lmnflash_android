@@ -8,6 +8,12 @@ navigation-menu = Navigation menu
 smartphone-flash-placeholder = Smartphone Flash will be available in a future update.
 
 flash-bootloader-title = Bootloader Unlock
+flash-bootloader-smartphone = Smartphone
+flash-bootloader-tablet = Tablet
+flash-bootloader-usb-permission = Waiting for USB permission…
+flash-bootloader-guided = Guided
+flash-bootloader-unlock-confirmation = Unlocking the bootloader may erase all data on the connected phone. Confirm only after reviewing the warning on the phone.
+flash-bootloader-android-transport-unavailable = Fastboot commands are not available in the Android app yet. Use a computer to read the Device ID and complete unlocking.
 flash-bootloader-button = Unlock Bootloader
 
 flash-bootloader-choose = How do you want to unlock the bootloader?

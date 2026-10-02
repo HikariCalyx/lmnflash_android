@@ -8,6 +8,7 @@ navigation-menu = Navigasjonsmeny
 smartphone-flash-placeholder = Flash av smarttelefon blir tilgjengelig i en fremtidig oppdatering.
 
 flash-bootloader-title = Opplåsing av bootloader
+flash-bootloader-android-transport-unavailable = Fastboot-kommandoer er ikke tilgjengelige i Android-appen ennå. Bruk en datamaskin til å lese Device ID og fullføre opplåsingen.
 flash-bootloader-button = Lås opp bootloader
 
 flash-bootloader-choose = Hvordan vil du låse opp bootloaderen?
