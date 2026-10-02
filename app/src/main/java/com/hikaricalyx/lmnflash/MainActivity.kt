@@ -197,8 +197,17 @@ private fun FirmwareLookupApp(
             onExternalCallbackConsumed(callback.id)
         }
     }
-    when (appMode) {
-        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashScreen(t, context, appMode) { appMode = it }
+    AnimatedContent(
+        targetState = appMode,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(220, delayMillis = 60)) +
+                slideInVertically(animationSpec = tween(280)) { height -> height / 12 }) togetherWith
+                fadeOut(animationSpec = tween(90))
+        },
+        label = "app mode",
+    ) { selectedMode ->
+        when (selectedMode) {
+        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashScreen(t, context, selectedMode) { appMode = it }
         AppMode.FIRMWARE_LOOKUP -> AnimatedContent(
             targetState = state.login,
             contentKey = { it::class },
@@ -235,6 +244,7 @@ private fun FirmwareLookupApp(
                 }
             }
         }
+    }
     }
 }
 
@@ -474,14 +484,26 @@ private fun SmartphoneFlashScreen(
             )
         },
     ) { padding ->
-        if (showManual) {
-            ManualBootloaderUnlockScreen(t, context, state, viewModel, onReturn = { showManual = false })
-        } else {
-            Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge)
-                        Button(onClick = { showChooser = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-button")) }
+        AnimatedContent(
+            targetState = showManual,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
+                    slideInVertically(animationSpec = tween(240)) { height -> height / 16 }) togetherWith
+                    fadeOut(animationSpec = tween(90))
+            },
+            label = "smartphone flash page",
+        ) { manualVisible ->
+            if (manualVisible) {
+                Column(Modifier.fillMaxSize().padding(padding)) {
+                    ManualBootloaderUnlockScreen(t, context, state, viewModel, onReturn = { showManual = false })
+                }
+            } else {
+                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge)
+                            Button(onClick = { showChooser = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-button")) }
+                        }
                     }
                 }
             }
@@ -543,7 +565,6 @@ private fun ManualBootloaderUnlockScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Spacer(Modifier.height(4.dp)) }
-        item { TextButton(onClick = onReturn) { Text("< ${t.text("flash-bootloader-return")}") } }
         item { Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge) }
         item { Text(t.text("flash-bootloader-manual-desc"), style = MaterialTheme.typography.bodyMedium) }
         item {
