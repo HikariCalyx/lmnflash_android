@@ -23,7 +23,13 @@ object FastbootUsbPermissionBroker {
         pendingCallbacks.getOrPut(device.deviceName) { mutableListOf() }.add(onResult)
         // Scope the result broadcast to this app; the receiver is registered before this call.
         val intent = Intent(FASTBOOT_USB_PERMISSION_ACTION).setPackage(appContext.packageName)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // UsbManager fills the device and grant-result extras into this callback intent.
+        // It is package-scoped, so mutability does not expose it to other applications.
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE
+        } else {
+            0
+        }
         val permissionIntent = PendingIntent.getBroadcast(appContext, device.deviceId, intent, flags)
         appContext.getSystemService(UsbManager::class.java).requestPermission(device, permissionIntent)
     }

@@ -208,3 +208,90 @@ adb-connecting = Starting an ADB USB connection…
 adb-connection-failed-title = Unable to start ADB USB connection
 adb-connection-failed = ADB USB failed before authorization: { $detail }
 adb-connection-retry = Retry connection
+
+firmware-flash-title = Flash Firmware
+firmware-flash-description = Select an official Motorola firmware ZIP, connect the phone in Fastboot mode, and flash its safe package plan.
+firmware-flash-open = Open Firmware Flash
+firmware-flash-select-zip = Select firmware ZIP
+firmware-flash-loading = Loading firmware ZIP…
+firmware-flash-package = Firmware package
+firmware-flash-model = Model: { $value }
+firmware-flash-version = Version: { $value }
+firmware-flash-package-cid = Package CID: { $value }
+firmware-flash-project = Package product: { $value }
+firmware-flash-steps = Safe flashing steps: { $count }
+firmware-flash-ignored = Protected partitions were skipped: { $partitions }
+firmware-flash-scan-device = Scan Fastboot devices
+firmware-flash-usb-permission = Waiting for USB permission…
+firmware-flash-reading-device = Reading Fastboot device information…
+firmware-flash-device = Connected device
+firmware-flash-product = Product: { $value }
+firmware-flash-device-cid = Device CID: { $value }
+firmware-flash-secure-state = Secure state: { $value }
+firmware-flash-cid-warning = The firmware CID does not match this device. Check that this is the correct regional package.
+firmware-flash-start = Start flashing
+firmware-flash-confirm-title = Confirm firmware flash
+firmware-flash-confirm-warning = Flashing writes the selected firmware to the connected phone. Do not disconnect either device while it is running.
+firmware-flash-mismatch-title = Firmware is for another product
+firmware-flash-mismatch-warning = The package product does not match the connected phone. Flashing it is expected to brick the phone. Confirm only if you understand the risk.
+firmware-flash-wait = Read the warning ({ $seconds })
+firmware-flash-running = Flashing firmware…
+firmware-flash-current-step = Step { $current } of { $total }: { $label }
+firmware-flash-no-cancel = Flashing cannot be cancelled. Keep the USB connection attached until it finishes.
+firmware-flash-success = Firmware flashing completed.
+firmware-flash-failed = Firmware flashing failed.
+firmware-flash-leave-title = Flashing is in progress
+firmware-flash-leave-warning = Leaving this screen does not stop flashing and can be unsafe. Keep this screen open and do not disconnect the phone unless you understand the risk.
+firmware-flash-leave = Leave screen
+firmware-flash-stay = Stay
+
+firmware-flash-steps-selected = Selected flashing steps: { $selected } of { $total }
+firmware-flash-edit-steps = Edit steps
+firmware-flash-edit-title = Edit flashing steps
+firmware-flash-select-all = Select all
+firmware-flash-select-none = Select none
+firmware-flash-no-steps = Select at least one flashing step before starting.
+firmware-flash-edit-done = Done
+firmware-flash-read-info = Read Info
+firmware-flash-info-title = Device information
+firmware-flash-reading-info = Reading device information…
+firmware-flash-hide-sensitive = Hide sensitive
+firmware-flash-show-sensitive = Show sensitive
+firmware-flash-copy-info = Copy info
+firmware-flash-serial = Serial number: { $value }
+firmware-flash-xt-model = XT model code: { $value }
+
+firmware-flash-preparing = Preparing firmware flash…
+firmware-flash-current-operation = Current operation: { $label }
+firmware-flash-current-transfer = Current image transfer: { $percent }%
+
+firmware-flash-save-log = Save log
+
+firmware-flash-reboot = Reboot
+firmware-flash-rebooting = Rebooting…
+
+smartphone-flash-disclaimer-title = Smartphone Flash notice
+smartphone-flash-disclaimer-message = The PC version of LMN Flash is the preferred option for firmware flashing. Use this Android feature only when you understand the risks and cannot use the PC version.
+smartphone-flash-disclaimer-continue = Continue on Android
+firmware-flash-total-progress = Overall progress: { $current } of { $total }
+firmware-flash-current-progress = Current operation progress
+firmware-flash-return = Return
+
+firmware-flash-reboot-normal = Normal
+firmware-flash-reboot-fastbootd = Fastbootd
+firmware-flash-reboot-recovery = Recovery
+firmware-flash-reboot-sideload = ADB Sideload
+firmware-flash-reboot-switch-slot = Switch Slot
+
+firmware-flash-burn-in-enter = Enter burn-in prevention mode
+firmware-flash-burn-in-progress = Flashing { $current }/{ $total } · { $percent }%
+firmware-flash-burn-in-finished = Finished
+
+firmware-flash-custom-open = Execute Custom Fastboot Command
+firmware-flash-custom-title = Custom Fastboot Command
+firmware-flash-custom-instructions = Enter a Fastboot command without the word “fastboot”. For example: oem get_unlock_data
+firmware-flash-custom-flash-unsupported = Flash commands are unsupported on this page.
+firmware-flash-custom-label = Fastboot command
+firmware-flash-custom-execute = Execute command
+firmware-flash-custom-executing = Executing command…
+firmware-flash-custom-response = Raw response

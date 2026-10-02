@@ -4,13 +4,17 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -19,11 +23,18 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,6 +63,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -60,21 +73,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,9 +105,11 @@ import com.hikaricalyx.lmnflash.fastboot.BootloaderStatus
 import com.hikaricalyx.lmnflash.fastboot.BootloaderUnlockViewModel
 import com.hikaricalyx.lmnflash.fastboot.DeviceReadSource
 import com.hikaricalyx.lmnflash.fastboot.FastbootPlatform
+import com.hikaricalyx.lmnflash.fastboot.FastbootRebootMode
 import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadStatus
 import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadViewModel
 import com.hikaricalyx.lmnflash.fastboot.UnlockEligibility
+import com.hikaricalyx.lmnflash.fastboot.maskFastbootInfo
 import com.hikaricalyx.lmnflash.firmware.CnTabletInfo
 import com.hikaricalyx.lmnflash.firmware.DeviceCategory
 import com.hikaricalyx.lmnflash.firmware.FirmwareInfo
@@ -99,10 +121,17 @@ import com.hikaricalyx.lmnflash.firmware.LookupMode
 import com.hikaricalyx.lmnflash.firmware.LookupResult
 import com.hikaricalyx.lmnflash.firmware.LookupStatus
 import com.hikaricalyx.lmnflash.firmware.Platform
+import com.hikaricalyx.lmnflash.firmwareflash.FirmwareFlashViewModel
+import com.hikaricalyx.lmnflash.firmwareflash.FirmwareFlashUiState
+import com.hikaricalyx.lmnflash.firmwareflash.FlashPart
+import com.hikaricalyx.lmnflash.firmwareflash.FlashPackage
 import com.hikaricalyx.lmnflash.l10n.AppLanguage
 import com.hikaricalyx.lmnflash.l10n.Translator
 import com.hikaricalyx.lmnflash.l10n.rememberTranslator
 import com.hikaricalyx.lmnflash.ui.theme.LMNFlashTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private data class SoftwareFixCallback(val id: Long, val uri: String)
@@ -192,6 +221,19 @@ private fun FirmwareLookupApp(
     val state = viewModel.state
     var showHistory by rememberSaveable { mutableStateOf(false) }
     var appMode by rememberSaveable { mutableStateOf(AppMode.FIRMWARE_LOOKUP) }
+    var showSmartphoneFlashDisclaimer by remember { mutableStateOf(false) }
+    var smartphoneFlashDisclaimerShown by remember { mutableStateOf(false) }
+    fun requestAppMode(mode: AppMode) {
+        if (mode == appMode) return
+        if (mode == AppMode.SMARTPHONE_FLASH) {
+            if (smartphoneFlashDisclaimerShown) {
+                appMode = mode
+            } else {
+                smartphoneFlashDisclaimerShown = true
+                showSmartphoneFlashDisclaimer = true
+            }
+        } else appMode = mode
+    }
     LaunchedEffect(externalCallback?.id) {
         externalCallback?.let { callback ->
             viewModel.submitExternalLoginCallback(callback.uri)
@@ -208,7 +250,7 @@ private fun FirmwareLookupApp(
         label = "app mode",
     ) { selectedMode ->
         when (selectedMode) {
-        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashScreen(t, context, selectedMode) { appMode = it }
+        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashScreen(t, context, selectedMode) { requestAppMode(it) }
         AppMode.FIRMWARE_LOOKUP -> AnimatedContent(
             targetState = state.login,
             contentKey = { it::class },
@@ -220,11 +262,11 @@ private fun FirmwareLookupApp(
             label = "login state",
         ) { login ->
             when (login) {
-                LoginState.LoggedOut -> LoginStart(t, context, viewModel::startLogin, { viewModel.startLogin(manual = true) }, (state.lookupStatus as? LookupStatus.Error)?.message, appMode) { appMode = it }
-                LoginState.Loading -> CenteredProgress(t.text("login-fetching")) { AppModeMenu(t, appMode) { appMode = it } }
-                is LoginState.Browser -> BrowserLogin(t, login, viewModel::showManualLogin, appMode) { appMode = it }
-                is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin, appMode) { appMode = it }
-                is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)), appMode) { appMode = it }
+                LoginState.LoggedOut -> LoginStart(t, context, viewModel::startLogin, { viewModel.startLogin(manual = true) }, (state.lookupStatus as? LookupStatus.Error)?.message, appMode) { requestAppMode(it) }
+                LoginState.Loading -> CenteredProgress(t.text("login-fetching")) { AppModeMenu(t, appMode) { requestAppMode(it) } }
+                is LoginState.Browser -> BrowserLogin(t, login, viewModel::showManualLogin, appMode) { requestAppMode(it) }
+                is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin, appMode) { requestAppMode(it) }
+                is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)), appMode) { requestAppMode(it) }
                 is LoginState.LoggedIn -> AnimatedContent(
                     targetState = showHistory,
                     transitionSpec = {
@@ -238,14 +280,34 @@ private fun FirmwareLookupApp(
                         HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
                             viewModel.restoreHistory(record)
                             showHistory = false
-                        }, appMode, { appMode = it }) { showHistory = false }
+                        }, appMode, { requestAppMode(it) }) { showHistory = false }
                     } else {
-                        LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout, appMode, { appMode = it }) { copyToClipboard(context, it) }
+                        LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout, appMode, { requestAppMode(it) }) { copyToClipboard(context, it) }
                     }
                 }
             }
         }
     }
+    }
+    if (showSmartphoneFlashDisclaimer) {
+        AlertDialog(
+            onDismissRequest = { showSmartphoneFlashDisclaimer = false },
+            title = { Text(t.text("smartphone-flash-disclaimer-title")) },
+            text = { Text(t.text("smartphone-flash-disclaimer-message")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    context.cacheDir.deleteRecursively()
+                    context.cacheDir.mkdirs()
+                    showSmartphoneFlashDisclaimer = false
+                    appMode = AppMode.SMARTPHONE_FLASH
+                }) {
+                    Text(t.text("smartphone-flash-disclaimer-continue"))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSmartphoneFlashDisclaimer = false }) { Text(t.text("login-cancel")) }
+            },
+        )
     }
 }
 
@@ -457,6 +519,8 @@ private val AppMode.translationKey: String
         AppMode.SMARTPHONE_FLASH -> "mode-2"
     }
 
+private enum class SmartphoneFlashPage { HOME, FIRMWARE, FLASHING, CUSTOM_COMMAND, BOOTLOADER }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SmartphoneFlashScreen(
@@ -465,81 +529,672 @@ private fun SmartphoneFlashScreen(
     selectedMode: AppMode,
     onModeSelected: (AppMode) -> Unit,
 ) {
-    val factory = remember(context) {
+    val bootloaderFactory = remember(context) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = BootloaderUnlockViewModel(context.applicationContext) as T
         }
     }
-    val viewModel: BootloaderUnlockViewModel = viewModel(factory = factory)
-    val state = viewModel.state
-    var showChooser by rememberSaveable { mutableStateOf(false) }
-    var showManual by rememberSaveable { mutableStateOf(false) }
+    val bootloaderViewModel: BootloaderUnlockViewModel = viewModel(factory = bootloaderFactory)
+    val bootloaderState = bootloaderViewModel.state
+    val flashFactory = remember(context) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = FirmwareFlashViewModel(context.applicationContext) as T
+        }
+    }
+    val flashViewModel: FirmwareFlashViewModel = viewModel(factory = flashFactory)
+    val flashState = flashViewModel.state
+    KeepScreenAwake(flashState.flashing)
+    var page by rememberSaveable { mutableStateOf(SmartphoneFlashPage.HOME) }
+    var burnInPreventionMode by rememberSaveable { mutableStateOf(false) }
+    // An active run has its own chrome-free screen while the user remains in Firmware Flash.
+    val displayedPage = if (page == SmartphoneFlashPage.FIRMWARE && (flashState.flashing || flashState.result != null)) SmartphoneFlashPage.FLASHING else page
+    var showBootloaderChooser by rememberSaveable { mutableStateOf(false) }
+    var pendingMode by remember { mutableStateOf<AppMode?>(null) }
+    var showLeaveWarning by remember { mutableStateOf(false) }
 
+    fun requestPageExit() {
+        when {
+            flashState.flashing || flashState.rebooting -> showLeaveWarning = true
+            flashState.customCommandExecuting -> Unit
+            displayedPage == SmartphoneFlashPage.FLASHING -> flashViewModel.clearResult()
+            displayedPage == SmartphoneFlashPage.CUSTOM_COMMAND -> page = SmartphoneFlashPage.FIRMWARE
+            else -> page = SmartphoneFlashPage.HOME
+        }
+    }
+    fun requestMode(mode: AppMode) {
+        if (mode == selectedMode) return
+        if (flashState.flashing) {
+            pendingMode = mode
+            showLeaveWarning = true
+        } else onModeSelected(mode)
+    }
+    BackHandler(enabled = displayedPage != SmartphoneFlashPage.HOME || flashState.flashing) { requestPageExit() }
+
+    val burnInVisible = burnInPreventionMode && page == SmartphoneFlashPage.FIRMWARE && (flashState.flashing || flashState.result != null)
+    if (burnInVisible) {
+        BurnInPreventionScreen(
+            t = t,
+            state = flashState,
+            onDismiss = { burnInPreventionMode = false },
+        )
+    } else {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(t.text("mode-2")) },
-                navigationIcon = { AppModeMenu(t, selectedMode, onModeSelected) },
-                actions = { LanguageMenu(context) },
-            )
+            if (displayedPage != SmartphoneFlashPage.FLASHING) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            when (displayedPage) {
+                                SmartphoneFlashPage.FIRMWARE -> t.text("firmware-flash-title")
+                                SmartphoneFlashPage.CUSTOM_COMMAND -> t.text("firmware-flash-custom-title")
+                                else -> t.text("mode-2")
+                            },
+                        )
+                    },
+                    navigationIcon = { AppModeMenu(t, selectedMode, ::requestMode) },
+                    actions = {
+                        if (displayedPage == SmartphoneFlashPage.FIRMWARE && flashState.editingOperations) {
+                            TextButton(onClick = flashViewModel::closeOperationEditor) { Text(t.text("firmware-flash-edit-done")) }
+                        } else {
+                            LanguageMenu(context)
+                        }
+                    },
+                )
+            }
         },
     ) { padding ->
         AnimatedContent(
-            targetState = showManual,
+            targetState = displayedPage,
             transitionSpec = {
-                (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
-                    slideInVertically(animationSpec = tween(240)) { height -> height / 16 }) togetherWith
-                    fadeOut(animationSpec = tween(90))
+                (fadeIn(animationSpec = tween(180, delayMillis = 30)) +
+                    slideInHorizontally(animationSpec = tween(240)) { width -> width / 14 }) togetherWith
+                    (fadeOut(animationSpec = tween(90)) +
+                        slideOutHorizontally(animationSpec = tween(160)) { width -> -width / 18 })
             },
             label = "smartphone flash page",
-        ) { manualVisible ->
-            if (manualVisible) {
-                Column(Modifier.fillMaxSize().padding(padding)) {
-                    ManualBootloaderUnlockScreen(t, context, state, viewModel, onReturn = { showManual = false })
+        ) { currentPage ->
+        when (currentPage) {
+            SmartphoneFlashPage.HOME -> Column(
+                Modifier.fillMaxSize()
+                    .padding(padding)
+                    .padding(top = 24.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(t.text("firmware-flash-title"), style = MaterialTheme.typography.titleLarge)
+                        Text(t.text("firmware-flash-description"), style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = { page = SmartphoneFlashPage.FIRMWARE }, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-open")) }
+                    }
                 }
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge)
+                        Button(onClick = { showBootloaderChooser = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-button")) }
+                    }
+                }
+            }
+            SmartphoneFlashPage.FIRMWARE -> FirmwareFlashScreen(
+                t, context, flashState, flashViewModel, padding,
+                onOpenCustomCommand = { page = SmartphoneFlashPage.CUSTOM_COMMAND },
+            )
+            SmartphoneFlashPage.FLASHING -> FirmwareFlashingScreen(
+                t, context, flashState, flashViewModel,
+                onEnterBurnIn = { burnInPreventionMode = true },
+            )
+            SmartphoneFlashPage.CUSTOM_COMMAND -> CustomFastbootCommandScreen(
+                t, flashState, flashViewModel, padding,
+                onReturn = { flashViewModel.clearCustomCommandOutput(); page = SmartphoneFlashPage.FIRMWARE },
+            )
+            SmartphoneFlashPage.BOOTLOADER -> Column(
+                Modifier.fillMaxSize()
+                    .padding(padding)
+                    .padding(top = 24.dp),
+            ) {
+                ManualBootloaderUnlockScreen(t, context, bootloaderState, bootloaderViewModel, onReturn = { page = SmartphoneFlashPage.HOME })
+            }
+        }
+        }
+    }
+    }
+
+    if (showLeaveWarning) {
+        AlertDialog(
+            onDismissRequest = { showLeaveWarning = false; pendingMode = null },
+            title = { Text(t.text("firmware-flash-leave-title")) },
+            text = { Text(t.text("firmware-flash-leave-warning")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val destination = pendingMode
+                    burnInPreventionMode = false
+                    showLeaveWarning = false
+                    pendingMode = null
+                    if (destination != null) onModeSelected(destination) else page = SmartphoneFlashPage.HOME
+                }) { Text(t.text("firmware-flash-leave")) }
+            },
+            dismissButton = { TextButton(onClick = { showLeaveWarning = false; pendingMode = null }) { Text(t.text("firmware-flash-stay")) } },
+        )
+    }
+    if (showBootloaderChooser) {
+        AlertDialog(
+            onDismissRequest = { showBootloaderChooser = false },
+            title = { Text(t.text("flash-bootloader-title")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(t.text("flash-bootloader-choose"))
+                    Button(onClick = { showBootloaderChooser = false; page = SmartphoneFlashPage.BOOTLOADER }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-smartphone")) }
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-tablet")) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showBootloaderChooser = false }) { Text(t.text("login-cancel")) } },
+        )
+    }
+    if (bootloaderState.picker.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = bootloaderViewModel::cancelPicker,
+            title = { Text(t.text("retcn-pick-device-title")) },
+            text = { Text(t.text("retcn-fill-fastboot-fetching")) },
+            confirmButton = { Column { bootloaderState.picker.forEach { candidate -> TextButton(onClick = { bootloaderViewModel.selectDevice(candidate) }, modifier = Modifier.fillMaxWidth()) { Text(candidate.label) } } } },
+            dismissButton = { TextButton(onClick = bootloaderViewModel::cancelPicker) { Text(t.text("login-cancel")) } },
+        )
+    }
+}
+
+private enum class FirmwareFlashSubPage { SETUP, EDIT, INFO }
+
+@Composable
+private fun FirmwareFlashScreen(
+    t: Translator,
+    context: Context,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    scaffoldPadding: androidx.compose.foundation.layout.PaddingValues,
+    onOpenCustomCommand: () -> Unit,
+) {
+    val target = when {
+        state.editingOperations -> FirmwareFlashSubPage.EDIT
+        state.infoView -> FirmwareFlashSubPage.INFO
+        else -> FirmwareFlashSubPage.SETUP
+    }
+    AnimatedContent(
+        targetState = target,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(180, delayMillis = 30)) +
+                slideInHorizontally(animationSpec = tween(240)) { width -> width / 14 }) togetherWith
+                (fadeOut(animationSpec = tween(90)) +
+                    slideOutHorizontally(animationSpec = tween(160)) { width -> -width / 18 })
+        },
+        label = "firmware flash subpage",
+    ) { subPage ->
+        when (subPage) {
+            FirmwareFlashSubPage.SETUP -> FirmwareFlashSetupContent(t, context, state, viewModel, scaffoldPadding, onOpenCustomCommand)
+            FirmwareFlashSubPage.EDIT -> FirmwareFlashOperationEditor(t, state, viewModel, scaffoldPadding)
+            FirmwareFlashSubPage.INFO -> FirmwareFlashInfoScreen(t, context, state, viewModel, scaffoldPadding)
+        }
+    }
+}
+
+@Composable
+private fun FirmwareFlashSetupContent(
+    t: Translator,
+    context: Context,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    scaffoldPadding: androidx.compose.foundation.layout.PaddingValues,
+    onOpenCustomCommand: () -> Unit,
+) {
+    val saveLog = rememberLogSaver(context)
+    val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::selectZip) }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp,
+            top = scaffoldPadding.calculateTopPadding() + 24.dp + 16.dp,
+            end = 16.dp,
+            bottom = scaffoldPadding.calculateBottomPadding() + 16.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Text(t.text("firmware-flash-description"), style = MaterialTheme.typography.bodyMedium) }
+        item {
+            OutlinedButton(onClick = { zipPicker.launch(arrayOf("application/zip", "application/x-zip-compressed")) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("firmware-flash-select-zip"))
+            }
+        }
+        if (state.loading) item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(t.text("firmware-flash-loading"))
+                state.packageProgress?.let { (done, total) -> if (total > 0) LinearProgressIndicator(progress = { (done.toFloat() / total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) else CircularProgressIndicator() }
+            }
+        }
+        state.flashPackage?.let { flashPackage -> item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(t.text("firmware-flash-package"), style = MaterialTheme.typography.titleMedium)
+                    Text(state.packageName.orEmpty())
+                    flashPackage.model?.let { Text(t.text("firmware-flash-model", "value" to it)) }
+                    flashPackage.softwareVersion?.let { Text(t.text("firmware-flash-version", "value" to it)) }
+                    flashPackage.cid?.let { Text(t.text("firmware-flash-package-cid", "value" to it)) }
+                    flashPackage.projectCode?.let { Text(t.text("firmware-flash-project", "value" to it)) }
+                    Text(t.text("firmware-flash-steps-selected", "selected" to state.enabledOperationCount, "total" to flashPackage.operations.size))
+                    OutlinedButton(onClick = viewModel::openOperationEditor, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-edit-steps")) }
+                    if (flashPackage.ignoredPartitions.isNotEmpty()) Text(t.text("firmware-flash-ignored", "partitions" to flashPackage.ignoredPartitions.joinToString(", ")), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        } }
+        item {
+            OutlinedButton(onClick = viewModel::refreshDevices, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-scan-device")) }
+        }
+        if (state.selected != null) item {
+            OutlinedButton(onClick = viewModel::readInfo, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-read-info")) }
+        }
+        if (state.selected != null && state.deviceInfo != null) item {
+            OutlinedButton(onClick = onOpenCustomCommand, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("firmware-flash-custom-open"))
+            }
+        }
+        if (state.selected != null && state.deviceInfo != null) item {
+            RebootModeMenu(t, state.rebooting, viewModel::reboot)
+        }
+        if (state.requestingPermission) item { Text(t.text("firmware-flash-usb-permission")) }
+        if (state.readingDevice) item { Text(t.text("firmware-flash-reading-device")) }
+        state.selected?.let { candidate -> item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(t.text("firmware-flash-device"), style = MaterialTheme.typography.titleMedium)
+                    Text(candidate.label)
+                    state.deviceInfo?.serialNumber?.let { Text(t.text("firmware-flash-serial", "value" to it)) }
+                    state.deviceInfo?.xtModel?.let { Text(t.text("firmware-flash-xt-model", "value" to it)) }
+                    state.deviceInfo?.product?.let { Text(t.text("firmware-flash-product", "value" to it)) }
+                    state.deviceInfo?.cid?.let { Text(t.text("firmware-flash-device-cid", "value" to it)) }
+                    state.deviceInfo?.secureState?.let { Text(t.text("firmware-flash-secure-state", "value" to it)) }
+                    if (FlashPackage.cidMismatch(state.flashPackage?.cid, state.deviceInfo?.cid)) Text(t.text("firmware-flash-cid-warning"), color = MaterialTheme.colorScheme.error)
+                }
+            }
+        } }
+        if (state.ready) item {
+            Button(onClick = viewModel::requestFlashConfirmation, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-start")) }
+        }
+        if (state.flashing) item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(t.text("firmware-flash-running"), style = MaterialTheme.typography.titleMedium)
+                    Text(t.text("firmware-flash-current-step", "current" to (state.stepIndex + 1), "total" to state.stepTotal, "label" to state.stepLabel))
+                    state.transferProgress?.let { (done, total) -> if (total > 0) LinearProgressIndicator(progress = { (done.toFloat() / total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) }
+                    Text(t.text("firmware-flash-no-cancel"), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        if (state.log.isNotEmpty()) item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { saveLog("lmnflash-flashing-log.txt", state.log.joinToString("\n")) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(t.text("firmware-flash-save-log"))
+                    }
+                    SelectionContainer { Text(state.log.joinToString("\n"), style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        state.error?.let { message -> item { ErrorText(t.error(message)) } }
+        state.result?.let { result -> item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (result.isSuccess) t.text("firmware-flash-success") else t.text("firmware-flash-failed"), style = MaterialTheme.typography.titleMedium)
+                    result.exceptionOrNull()?.message?.let { ErrorText(t.error(it)) }
+                    if (result.isSuccess) {
+                        RebootModeMenu(t, state.rebooting, viewModel::reboot)
+                    }
+                    OutlinedButton(onClick = viewModel::clearResult, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-back")) }
+                }
+            }
+        } }
+        item { Spacer(Modifier.height(16.dp)) }
+    }
+    if (state.picker.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissPicker,
+            title = { Text(t.text("retcn-pick-device-title")) },
+            text = { Column { state.picker.forEach { candidate -> TextButton(onClick = { viewModel.selectDevice(candidate) }, modifier = Modifier.fillMaxWidth()) { Text(candidate.label) } } } },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = viewModel::dismissPicker) { Text(t.text("login-cancel")) } },
+        )
+    }
+    if (state.confirming) {
+        val mismatch = FlashPackage.projectMismatch(state.flashPackage?.projectCode, state.deviceInfo?.product)
+        AlertDialog(
+            onDismissRequest = viewModel::dismissFlashConfirmation,
+            title = { Text(t.text(if (mismatch) "firmware-flash-mismatch-title" else "firmware-flash-confirm-title")) },
+            text = { Text(t.text(if (mismatch) "firmware-flash-mismatch-warning" else "firmware-flash-confirm-warning")) },
+            confirmButton = { TextButton(onClick = viewModel::confirmFlash, enabled = state.mismatchCountdown == 0) { Text(if (state.mismatchCountdown == 0) t.text("firmware-flash-start") else t.text("firmware-flash-wait", "seconds" to state.mismatchCountdown)) } },
+            dismissButton = { TextButton(onClick = viewModel::dismissFlashConfirmation) { Text(t.text("login-back")) } },
+        )
+    }
+}
+
+@Composable
+private fun CustomFastbootCommandScreen(
+    t: Translator,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    scaffoldPadding: androidx.compose.foundation.layout.PaddingValues,
+    onReturn: () -> Unit,
+) {
+    var command by rememberSaveable { mutableStateOf("") }
+    BackHandler(onBack = onReturn)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp,
+            top = scaffoldPadding.calculateTopPadding() + 24.dp + 16.dp,
+            end = 16.dp,
+            bottom = scaffoldPadding.calculateBottomPadding() + 16.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Text(t.text("firmware-flash-custom-title"), style = MaterialTheme.typography.titleLarge) }
+        item { Text(t.text("firmware-flash-custom-instructions"), style = MaterialTheme.typography.bodyMedium) }
+        item { Text(t.text("firmware-flash-custom-flash-unsupported"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+        item {
+            OutlinedTextField(
+                value = command,
+                onValueChange = { command = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(t.text("firmware-flash-custom-label")) },
+                placeholder = { Text("oem get_unlock_data") },
+                singleLine = true,
+            )
+        }
+        item {
+            Button(
+                onClick = { viewModel.executeCustomCommand(command) },
+                enabled = command.isNotBlank() && !state.customCommandExecuting,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(t.text(if (state.customCommandExecuting) "firmware-flash-custom-executing" else "firmware-flash-custom-execute")) }
+        }
+        if (state.customCommandExecuting) item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(t.text("firmware-flash-custom-executing"))
+            }
+        }
+        state.customCommandError?.let { error -> item { ErrorText(t.error(error)) } }
+        if (state.customCommandResponse.isNotEmpty()) {
+            item { Text(t.text("firmware-flash-custom-response"), style = MaterialTheme.typography.titleMedium) }
+            item { LogTextBox(state.customCommandResponse.joinToString("\n"), Modifier.height(280.dp)) }
+        }
+        item { OutlinedButton(onClick = onReturn, enabled = !state.customCommandExecuting, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-return")) } }
+    }
+}
+
+@Composable
+private fun BurnInPreventionScreen(
+    t: Translator,
+    state: FirmwareFlashUiState,
+    onDismiss: () -> Unit,
+) {
+    ImmersiveSystemBars(enabled = true)
+    var horizontalFraction by remember { mutableStateOf(0.12f) }
+    var verticalFraction by remember { mutableStateOf(0.12f) }
+    LaunchedEffect(state.flashing, state.result) {
+        while (true) {
+            horizontalFraction = kotlin.random.Random.nextFloat().coerceIn(0.04f, 0.72f)
+            verticalFraction = kotlin.random.Random.nextFloat().coerceIn(0.04f, 0.88f)
+            kotlinx.coroutines.delay(10_000)
+        }
+    }
+    BackHandler(onBack = onDismiss)
+    val message = if (state.flashing) {
+        val transferPercent = state.transferProgress?.let { (done, total) -> if (total > 0) done * 100 / total else 0 } ?: 0
+        t.text(
+            "firmware-flash-burn-in-progress",
+            "current" to state.stepIndex + 1,
+            "total" to state.stepTotal,
+            "percent" to transferPercent,
+        )
+    } else {
+        t.text("firmware-flash-burn-in-finished")
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+        Text(
+            text = message,
+            color = Color.White.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.offset(x = maxWidth * horizontalFraction, y = maxHeight * verticalFraction),
+        )
+    }
+}
+
+@Composable
+private fun ImmersiveSystemBars(enabled: Boolean) {
+    val view = LocalView.current
+    val activity = view.context.findActivity()
+    DisposableEffect(enabled, activity, view) {
+        val controller = activity?.window?.let { WindowCompat.getInsetsController(it, view) }
+        if (enabled) {
+            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            if (enabled) controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+}
+
+@Composable
+private fun FirmwareFlashingScreen(
+    t: Translator,
+    context: Context,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    onEnterBurnIn: () -> Unit,
+) {
+    val saveLog = rememberLogSaver(context)
+    val logText = state.log.joinToString("\n")
+    val total = state.stepTotal.coerceAtLeast(1)
+    val subProgress = state.transferProgress?.let { (done, bytes) -> if (bytes > 0) done.toFloat() / bytes else 0f } ?: 0f
+    val overallProgress = ((state.stepIndex + subProgress) / total).coerceIn(0f, 1f)
+
+    Column(
+        modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (state.flashing) {
+            Text(t.text("firmware-flash-running"), style = MaterialTheme.typography.titleLarge)
+            Text(t.text("firmware-flash-total-progress", "current" to state.stepIndex + 1, "total" to state.stepTotal), style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(progress = { overallProgress }, modifier = Modifier.fillMaxWidth())
+            val label = state.stepLabel.takeIf(String::isNotBlank)
+            Text(
+                if (label == null) t.text("firmware-flash-preparing")
+                else t.text("firmware-flash-current-operation", "label" to label),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(t.text("firmware-flash-current-progress"), style = MaterialTheme.typography.bodyMedium)
+            if (state.transferProgress == null) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             } else {
-                Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(t.text("flash-bootloader-title"), style = MaterialTheme.typography.titleLarge)
-                            Button(onClick = { showChooser = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-button")) }
-                        }
+                LinearProgressIndicator(progress = { subProgress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            }
+            Text(t.text("firmware-flash-no-cancel"), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = onEnterBurnIn, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("firmware-flash-burn-in-enter"))
+            }
+        } else {
+            val result = state.result
+            Text(
+                t.text(if (result?.isSuccess == true) "firmware-flash-success" else "firmware-flash-failed"),
+                style = MaterialTheme.typography.titleLarge,
+            )
+            result?.exceptionOrNull()?.message?.let { ErrorText(t.error(it)) }
+            RebootModeMenu(t, state.rebooting, viewModel::reboot)
+            OutlinedButton(onClick = viewModel::clearResult, enabled = !state.rebooting, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("firmware-flash-return"))
+            }
+        }
+        if (logText.isNotBlank()) {
+            OutlinedButton(onClick = { saveLog("lmnflash-flashing-log.txt", logText) }, modifier = Modifier.fillMaxWidth()) {
+                Text(t.text("firmware-flash-save-log"))
+            }
+            LogTextBox(logText, Modifier.weight(1f))
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun LogTextBox(text: String, modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+    LaunchedEffect(text) { scrollState.scrollTo(scrollState.maxValue) }
+    Card(modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxSize().verticalScroll(scrollState).padding(12.dp)) {
+            SelectionContainer { Text(text, style = MaterialTheme.typography.bodySmall) }
+        }
+    }
+}
+
+@Composable
+private fun RebootModeMenu(
+    t: Translator,
+    rebooting: Boolean,
+    onReboot: (FastbootRebootMode) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { expanded = true }, enabled = !rebooting, modifier = Modifier.fillMaxWidth()) {
+            Text(t.text(if (rebooting) "firmware-flash-rebooting" else "firmware-flash-reboot"))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            FastbootRebootMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label(t)) },
+                    onClick = { expanded = false; onReboot(mode) },
+                )
+            }
+        }
+    }
+}
+
+private fun FastbootRebootMode.label(t: Translator): String = t.text(
+    when (this) {
+        FastbootRebootMode.NORMAL -> "firmware-flash-reboot-normal"
+        FastbootRebootMode.FASTBOOTD -> "firmware-flash-reboot-fastbootd"
+        FastbootRebootMode.RECOVERY -> "firmware-flash-reboot-recovery"
+        FastbootRebootMode.ADB_SIDELOAD -> "firmware-flash-reboot-sideload"
+        FastbootRebootMode.SWITCH_SLOT -> "firmware-flash-reboot-switch-slot"
+    },
+)
+
+@Composable
+private fun FirmwareFlashOperationEditor(
+    t: Translator,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    scaffoldPadding: androidx.compose.foundation.layout.PaddingValues,
+) {
+    val operations = state.flashPackage?.operations.orEmpty()
+    BackHandler(onBack = viewModel::closeOperationEditor)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp,
+            top = scaffoldPadding.calculateTopPadding() + 24.dp + 16.dp,
+            end = 16.dp,
+            bottom = scaffoldPadding.calculateBottomPadding() + 16.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Text(t.text("firmware-flash-edit-title"), style = MaterialTheme.typography.titleLarge) }
+        item { Text(t.text("firmware-flash-steps-selected", "selected" to state.enabledOperationCount, "total" to operations.size)) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { viewModel.setAllOperationsEnabled(true) }) { Text(t.text("firmware-flash-select-all")) }
+                OutlinedButton(onClick = { viewModel.setAllOperationsEnabled(false) }) { Text(t.text("firmware-flash-select-none")) }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { viewModel.selectFlashPart(FlashPart.AP) }) { Text("AP") }
+                OutlinedButton(onClick = { viewModel.selectFlashPart(FlashPart.BP) }) { Text("BP") }
+                OutlinedButton(onClick = { viewModel.selectFlashPart(FlashPart.BL) }) { Text("BL") }
+            }
+        }
+        if (state.enabledOperationCount == 0) item { ErrorText(t.text("firmware-flash-no-steps")) }
+        operations.forEachIndexed { index, operation ->
+            item(key = "flash-operation-$index") {
+                val selected = state.enabledOperations.getOrElse(index) { true }
+                Card(
+                    Modifier.fillMaxWidth().clickable { viewModel.setOperationEnabled(index, !selected) },
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = selected,
+                            onCheckedChange = { enabled -> viewModel.setOperationEnabled(index, enabled) },
+                        )
+                        Text("${index + 1}. ${operation.label}", modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
         }
     }
+}
 
-    if (showChooser) {
-        AlertDialog(
-            onDismissRequest = { showChooser = false },
-            title = { Text(t.text("flash-bootloader-title")) },
-            text = {
+@Composable
+private fun FirmwareFlashInfoScreen(
+    t: Translator,
+    context: Context,
+    state: FirmwareFlashUiState,
+    viewModel: FirmwareFlashViewModel,
+    scaffoldPadding: androidx.compose.foundation.layout.PaddingValues,
+) {
+    val displayedLines = if (state.hideSensitiveInfo) maskFastbootInfo(state.infoLines) else state.infoLines
+    val displayedText = displayedLines.joinToString("\n")
+    val saveLog = rememberLogSaver(context)
+    BackHandler(enabled = !state.readingInfo, onBack = viewModel::closeInfo)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 16.dp,
+            top = scaffoldPadding.calculateTopPadding() + 24.dp + 16.dp,
+            end = 16.dp,
+            bottom = scaffoldPadding.calculateBottomPadding() + 16.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { Text(t.text("firmware-flash-info-title"), style = MaterialTheme.typography.titleLarge) }
+        if (state.readingInfo) item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(t.text("firmware-flash-reading-info"))
+            }
+        }
+        state.infoError?.let { error -> item { ErrorText(t.error(error)) } }
+        if (state.infoLines.isNotEmpty()) {
+            item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(t.text("flash-bootloader-choose"))
-                    Button(onClick = { showChooser = false; showManual = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-smartphone")) }
-                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-tablet")) }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { showChooser = false }) { Text(t.text("login-cancel")) } },
-        )
-    }
-    if (state.picker.isNotEmpty()) {
-        AlertDialog(
-            onDismissRequest = viewModel::cancelPicker,
-            title = { Text(t.text("retcn-pick-device-title")) },
-            text = { Text(t.text("retcn-fill-fastboot-fetching")) },
-            confirmButton = {
-                Column {
-                    state.picker.forEach { candidate ->
-                        TextButton(onClick = { viewModel.selectDevice(candidate) }, modifier = Modifier.fillMaxWidth()) { Text(candidate.label) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { viewModel.setHideSensitiveInfo(!state.hideSensitiveInfo) }) {
+                            Text(t.text(if (state.hideSensitiveInfo) "firmware-flash-show-sensitive" else "firmware-flash-hide-sensitive"))
+                        }
+                        OutlinedButton(onClick = { copyToClipboard(context, displayedText) }) { Text(t.text("firmware-flash-copy-info")) }
+                    }
+                    OutlinedButton(onClick = { saveLog("lmnflash-read-info.txt", displayedText) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(t.text("firmware-flash-save-log"))
                     }
                 }
-            },
-            dismissButton = { TextButton(onClick = viewModel::cancelPicker) { Text(t.text("login-cancel")) } },
-        )
+            }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    SelectionContainer { Text(displayedText, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        item { OutlinedButton(onClick = viewModel::closeInfo, enabled = !state.readingInfo, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-back")) } }
     }
 }
 
@@ -1108,6 +1763,53 @@ private fun LookupMode.label(t: Translator) = t.text(when (this) { LookupMode.RO
 private fun Platform.label(t: Translator) = t.text(if (this == Platform.QUALCOMM) "platform-qualcomm" else "platform-mediatek")
 private fun DeviceCategory.label(t: Translator) = t.text(when (this) { DeviceCategory.PHONE -> "category-phone"; DeviceCategory.TABLET -> "category-tablet"; DeviceCategory.SMART -> "category-smart" })
 private fun String.label(t: Translator) = when (this) { "fingerPrint" -> t.text("retcn-fingerprint-label"); "roCarrier" -> t.text("retcn-carrier-label"); "fsgVersion.qcom" -> t.text("retcn-fsg-label"); "simCount" -> t.text("retcn-sim-label"); else -> this }
+
+@Composable
+private fun KeepScreenAwake(keepAwake: Boolean) {
+    val activity = LocalView.current.context.findActivity()
+    DisposableEffect(activity, keepAwake) {
+        val window = activity?.window
+        val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        val alreadyKeptAwake = window?.attributes?.flags?.and(flag) != 0
+        if (keepAwake && !alreadyKeptAwake) window?.addFlags(flag)
+        onDispose {
+            if (keepAwake && !alreadyKeptAwake) window?.clearFlags(flag)
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+private data class PendingLogSave(val fileName: String, val text: String)
+
+/** Opens Android's user-owned document picker and writes the captured text after a destination is chosen. */
+@Composable
+private fun rememberLogSaver(context: Context): (String, String) -> Unit {
+    val scope = rememberCoroutineScope()
+    var pendingSave by remember { mutableStateOf<PendingLogSave?>(null) }
+    val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val save = pendingSave
+        pendingSave = null
+        if (uri != null && save != null) {
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer -> writer.write(save.text) }
+                }
+            }
+        }
+    }
+    return { fileName, text ->
+        if (text.isNotBlank()) {
+            pendingSave = PendingLogSave(fileName, text)
+            createDocument.launch(fileName)
+        }
+    }
+}
+
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("LMN Flash", text))
