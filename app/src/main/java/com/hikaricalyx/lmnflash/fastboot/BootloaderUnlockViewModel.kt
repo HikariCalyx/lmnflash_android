@@ -19,8 +19,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val USB_PERMISSION_ACTION = "com.hikaricalyx.lmnflash.USB_FASTBOOT_PERMISSION"
-
 data class BootloaderUiState(
     val deviceId: String = "",
     val status: BootloaderStatus = BootloaderStatus.Idle,
@@ -58,24 +56,6 @@ class BootloaderUnlockViewModel(context: Context) : ViewModel() {
 
     var state by mutableStateOf(BootloaderUiState())
         private set
-
-    private val permissionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != USB_PERMISSION_ACTION) return
-            val device = intent.usbDevice() ?: return
-            val candidate = pendingDevice ?: return
-            if (candidate.device.deviceName != device.deviceName) return
-            val action = pendingAction
-            pendingDevice = null
-            pendingAction = null
-            if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) && action != null) execute(candidate, action)
-            else state = state.copy(status = BootloaderStatus.Error("USB permission was denied."))
-        }
-    }
-
-    init {
-        ContextCompat.registerReceiver(appContext, permissionReceiver, IntentFilter(USB_PERMISSION_ACTION), ContextCompat.RECEIVER_EXPORTED)
-    }
 
     fun readUnlockData() = begin(PendingAction.Read)
 
@@ -124,13 +104,19 @@ class BootloaderUnlockViewModel(context: Context) : ViewModel() {
         pendingAction = action
         pendingDevice = candidate
         state = state.copy(status = BootloaderStatus.RequestingPermission)
-        val intent = Intent(USB_PERMISSION_ACTION)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        usbManager.requestPermission(candidate.device, PendingIntent.getBroadcast(appContext, candidate.device.deviceId, intent, flags))
         val deviceName = candidate.device.deviceName
+        FastbootUsbPermissionBroker.request(appContext, candidate.device) { granted ->
+            if (pendingDevice?.device?.deviceName != deviceName) return@request
+            val pending = pendingAction
+            pendingDevice = null
+            pendingAction = null
+            if (granted && pending != null) execute(candidate, pending)
+            else state = state.copy(status = BootloaderStatus.Error("USB permission was denied."))
+        }
         viewModelScope.launch {
             delay(60_000)
             if (pendingDevice?.device?.deviceName == deviceName) {
+                FastbootUsbPermissionBroker.cancel(candidate.device)
                 pendingDevice = null
                 pendingAction = null
                 state = state.copy(status = BootloaderStatus.Error("USB permission request timed out."))
@@ -190,7 +176,7 @@ class BootloaderUnlockViewModel(context: Context) : ViewModel() {
     }
 
     override fun onCleared() {
-        appContext.unregisterReceiver(permissionReceiver)
+        pendingDevice?.device?.let(FastbootUsbPermissionBroker::cancel)
     }
 }
 

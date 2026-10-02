@@ -21,6 +21,17 @@ private const val FASTBOOT_PACKET_SIZE = 64
 
 data class FastbootCandidate(val device: UsbDevice, val interfaceIndex: Int, val label: String)
 
+data class RetcnDeviceInfo(
+    val imei: String? = null,
+    val serialNumber: String? = null,
+    val model: String? = null,
+    val carrier: String? = null,
+    val fingerprint: String? = null,
+    val platform: FastbootPlatform = FastbootPlatform.UNKNOWN,
+    val fsgVersion: String? = null,
+    val simCount: Int? = null,
+)
+
 enum class FastbootPlatform { QUALCOMM, MEDIATEK, UNKNOWN }
 
 sealed interface FastbootUnlockResult {
@@ -47,6 +58,27 @@ class UsbFastbootClient(private val usbManager: UsbManager) {
         val reply = session.oem("get_unlock_data")
         val lines = reply.successLinesOrThrow()
         parseUnlockData(lines)
+    }
+
+    fun readRetcnInfo(candidate: FastbootCandidate): RetcnDeviceInfo = withSession(candidate) { session ->
+        val variables = session.requireMotorola().mapKeys { (key, _) -> key.lowercase() }
+        val imei = variables.firstValue("imei")?.filter(Char::isDigit)?.takeIf { it.length in 14..15 }
+        val model = variables.firstValue("sku", "ro.boot.hardware.sku", "ro.product.model", "model")
+            ?.takeIf { XT_MODEL.matches(it) }
+        val platform = detectPlatform(variables)
+        val simCount = if (platform == FastbootPlatform.MEDIATEK) {
+            runCatching { parseDualSim(session.oem("hw dualsim").successLinesOrThrow()) }.getOrNull()
+        } else null
+        RetcnDeviceInfo(
+            imei = imei,
+            serialNumber = variables.firstValue("serialno", "serial-number"),
+            model = model,
+            carrier = variables.firstValue("ro.carrier", "carrier"),
+            fingerprint = variables.firstValue("ro.build.fingerprint", "fingerprint", "ro.fingerprint"),
+            platform = platform,
+            fsgVersion = variables.fsgVersion(),
+            simCount = simCount,
+        )
     }
 
     fun unlock(candidate: FastbootCandidate, key: String): FastbootUnlockResult = withSession(candidate) { session ->
@@ -193,4 +225,49 @@ private fun classifyUnlock(reply: Reply, platform: FastbootPlatform): FastbootUn
         reply is Reply.Success -> FastbootUnlockResult.Unlocked
         else -> FastbootUnlockResult.Failed(text.ifBlank { "Fastboot unlock failed" })
     }
+}
+
+
+private val XT_MODEL = Regex("^XT[A-Z0-9-]+$", RegexOption.IGNORE_CASE)
+
+private fun Map<String, String>.firstValue(vararg keys: String): String? = keys
+    .asSequence()
+    .mapNotNull { key -> this[key]?.trim()?.takeIf(String::isNotBlank) }
+    .firstOrNull()
+
+
+private fun Map<String, String>.fsgVersion(): String? {
+    firstValue(
+        "fsg-id",
+        "fsg-version",
+        "fsgid",
+        "fsgversion",
+        "fsg-version.qcom",
+        "fsgversion.qcom",
+    )?.let { return it }
+
+    entries.firstOrNull { (key, value) -> key.contains("fsg", ignoreCase = true) && value.isNotBlank() }
+        ?.value?.trim()?.let { return it }
+
+    return this["version-baseband"]
+        ?.substringAfter(' ', missingDelimiterValue = "")
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+}
+
+
+private fun parseDualSim(lines: List<String>): Int? {
+    val text = lines.joinToString("\n").lowercase()
+    if ("true" in text) return 2
+    if ("false" in text) return 1
+    return lines.asSequence()
+        .flatMap { it.split(':', '=', ' ').asSequence() }
+        .map(String::trim)
+        .mapNotNull { token ->
+            when {
+                token.startsWith("0x", ignoreCase = true) -> token.drop(2).toIntOrNull(16)
+                else -> token.toIntOrNull()
+            }
+        }
+        .firstOrNull { it == 1 || it == 2 }
 }

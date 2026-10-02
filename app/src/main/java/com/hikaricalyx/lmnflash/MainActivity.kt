@@ -83,6 +83,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hikaricalyx.lmnflash.fastboot.BootloaderStatus
 import com.hikaricalyx.lmnflash.fastboot.BootloaderUnlockViewModel
+import com.hikaricalyx.lmnflash.fastboot.FastbootPlatform
+import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadStatus
+import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadViewModel
 import com.hikaricalyx.lmnflash.fastboot.UnlockEligibility
 import com.hikaricalyx.lmnflash.firmware.CnTabletInfo
 import com.hikaricalyx.lmnflash.firmware.DeviceCategory
@@ -489,14 +492,14 @@ private fun SmartphoneFlashScreen(
         AlertDialog(
             onDismissRequest = { showChooser = false },
             title = { Text(t.text("flash-bootloader-title")) },
-            text = { Text(t.text("flash-bootloader-choose")) },
-            confirmButton = {
-                Column {
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(t.text("flash-bootloader-choose"))
                     Button(onClick = { showChooser = false; showManual = true }, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-smartphone")) }
-                    Spacer(Modifier.height(8.dp))
                     Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("flash-bootloader-tablet")) }
                 }
             },
+            confirmButton = {},
             dismissButton = { TextButton(onClick = { showChooser = false }) { Text(t.text("login-cancel")) } },
         )
     }
@@ -600,7 +603,9 @@ private fun BootloaderStatusView(t: Translator, status: BootloaderStatus) {
         BootloaderStatus.Reading -> Text(t.text("retcn-fill-fastboot-fetching"), style = MaterialTheme.typography.bodyMedium)
         BootloaderStatus.Unlocking -> Text(t.text("flash-bootloader-unlocking"), style = MaterialTheme.typography.bodyMedium)
         is BootloaderStatus.Success -> Text(t.text(status.messageKey), style = MaterialTheme.typography.bodyMedium)
-        is BootloaderStatus.Error -> ErrorText(t.error(status.message))
+        is BootloaderStatus.Error -> if (status.message == "No supported Motorola device found") {
+            ErrorText(t.text("retcn-fill-fastboot-not-motorola"))
+        } else ErrorText(t.error(status.message))
     }
 }
 
@@ -658,8 +663,46 @@ private fun RetcnForm(
     state: FirmwareUiState,
     onUpdate: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit,
 ) {
+    val context = LocalContext.current
+    val factory = remember(context) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = RetcnDeviceReadViewModel(context.applicationContext) as T
+        }
+    }
+    val deviceReader: RetcnDeviceReadViewModel = viewModel(factory = factory)
+    val readState = deviceReader.state
+    var showConnectionChooser by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(readState.fillSequence) {
+        if (readState.fillSequence > 0) readState.deviceInfo?.let { info ->
+            onUpdate { form ->
+                form.copy(
+                    imei = info.imei ?: form.imei,
+                    serialNumber = info.serialNumber ?: form.serialNumber,
+                    model = info.model ?: form.model,
+                    carrier = info.carrier ?: form.carrier,
+                    fingerprint = info.fingerprint ?: form.fingerprint,
+                    platform = when (info.platform) {
+                        FastbootPlatform.QUALCOMM -> Platform.QUALCOMM
+                        FastbootPlatform.MEDIATEK -> Platform.MEDIATEK
+                        FastbootPlatform.UNKNOWN -> form.platform
+                    },
+                    fsgVersion = info.fsgVersion ?: form.fsgVersion,
+                    simCount = if (info.platform == FastbootPlatform.MEDIATEK) info.simCount ?: form.simCount else form.simCount,
+                )
+            }
+        }
+    }
+    val reading = readState.status is RetcnDeviceReadStatus.RequestingPermission || readState.status is RetcnDeviceReadStatus.Reading
     val f = state.retcn
-    Text(t.text("lookup-mode-retcn"), style = MaterialTheme.typography.titleMedium)
+    OutlinedButton(onClick = { showConnectionChooser = true }, enabled = !reading, modifier = Modifier.fillMaxWidth()) {
+        if (reading) {
+            CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(t.text("retcn-read-device"))
+    }
+    RetcnDeviceReadStatusView(t, readState.status)
     Field(
         t.text("lookup-imei-label"),
         f.imei,
@@ -707,6 +750,52 @@ private fun RetcnForm(
             ) { value -> onUpdate { it.copy(fsgVersion = value) } }
         } else {
             SimMenu(t, f.simCount) { value -> onUpdate { it.copy(simCount = value) } }
+        }
+    }
+    if (showConnectionChooser) {
+        AlertDialog(
+            onDismissRequest = { showConnectionChooser = false },
+            title = { Text(t.text("retcn-read-device")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(t.text("retcn-read-device-choose"))
+                    Button(onClick = { showConnectionChooser = false; deviceReader.readFromFastboot() }, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-fill-fastboot")) }
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-usb")) }
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-wireless")) }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showConnectionChooser = false }) { Text(t.text("login-cancel")) } },
+        )
+    }
+    if (readState.picker.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = deviceReader::cancelPicker,
+            title = { Text(t.text("retcn-pick-device-title")) },
+            text = { Text(t.text("retcn-fill-fastboot-fetching")) },
+            confirmButton = {
+                Column {
+                    readState.picker.forEach { candidate ->
+                        TextButton(onClick = { deviceReader.selectDevice(candidate) }, modifier = Modifier.fillMaxWidth()) { Text(candidate.label) }
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = deviceReader::cancelPicker) { Text(t.text("login-cancel")) } },
+        )
+    }
+}
+
+@Composable
+private fun RetcnDeviceReadStatusView(t: Translator, status: RetcnDeviceReadStatus) {
+    when (status) {
+        RetcnDeviceReadStatus.Idle -> Unit
+        RetcnDeviceReadStatus.RequestingPermission -> Text(t.text("retcn-fill-fastboot-permission"), style = MaterialTheme.typography.bodyMedium)
+        RetcnDeviceReadStatus.Reading -> Text(t.text("retcn-fill-fastboot-fetching"), style = MaterialTheme.typography.bodyMedium)
+        is RetcnDeviceReadStatus.Filled -> Text(t.text("retcn-fill-fastboot-filled", "serial" to status.serial), style = MaterialTheme.typography.bodyMedium)
+        is RetcnDeviceReadStatus.Error -> when (status.message) {
+            "No fastboot device connected" -> ErrorText(t.text("retcn-fill-fastboot-no-device"))
+            "No supported Motorola device found" -> ErrorText(t.text("retcn-fill-fastboot-not-motorola"))
+            else -> ErrorText(status.message)
         }
     }
 }
