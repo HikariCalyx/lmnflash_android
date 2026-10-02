@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = 固件查询
 mode-2 = 智能手机刷写
 mode-3 = 固件解密
+navigation-menu = 导航菜单
+smartphone-flash-placeholder = 智能手机刷写功能将在未来版本中推出。
 
 flash-bootloader-title = Bootloader 解锁
 flash-bootloader-button = 解锁

@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = Firmwareopslag
 mode-2 = Flash af smartphone
 mode-3 = Firmware-dekryptering
+navigation-menu = Navigationsmenu
+smartphone-flash-placeholder = Flash af smartphone bliver tilgængelig i en kommende opdatering.
 
 flash-bootloader-title = Oplåsning af bootloader
 flash-bootloader-button = Lås bootloaderen op

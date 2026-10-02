@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = 펌웨어 조회
 mode-2 = 스마트폰 플래시
 mode-3 = 펌웨어 복호화
+navigation-menu = 탐색 메뉴
+smartphone-flash-placeholder = 스마트폰 플래시 기능은 향후 업데이트에서 제공될 예정입니다.
 
 flash-bootloader-title = 부트로더 잠금 해제
 flash-bootloader-button = 잠금 해제

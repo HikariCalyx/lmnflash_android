@@ -166,6 +166,8 @@ private fun setLegacyAppLanguage(context: Context, languageTag: String?) {
     (context as? Activity)?.recreate()
 }
 
+private enum class AppMode { FIRMWARE_LOOKUP, SMARTPHONE_FLASH }
+
 @Composable
 private fun FirmwareLookupApp(
     externalCallback: SoftwareFixCallback?,
@@ -182,60 +184,84 @@ private fun FirmwareLookupApp(
     val viewModel: FirmwareLookupViewModel = viewModel(factory = factory)
     val state = viewModel.state
     var showHistory by rememberSaveable { mutableStateOf(false) }
+    var appMode by rememberSaveable { mutableStateOf(AppMode.FIRMWARE_LOOKUP) }
     LaunchedEffect(externalCallback?.id) {
         externalCallback?.let { callback ->
             viewModel.submitExternalLoginCallback(callback.uri)
             onExternalCallbackConsumed(callback.id)
         }
     }
-    AnimatedContent(
-        targetState = state.login,
-        contentKey = { it::class },
-        transitionSpec = {
-            (fadeIn(animationSpec = tween(220, delayMillis = 60)) +
-                slideInVertically(animationSpec = tween(280)) { height -> height / 12 }) togetherWith
-                fadeOut(animationSpec = tween(90))
-        },
-        label = "login state",
-    ) { login ->
-        when (login) {
-            LoginState.LoggedOut -> LoginStart(t, context, viewModel::startLogin, { viewModel.startLogin(manual = true) }, (state.lookupStatus as? LookupStatus.Error)?.message)
-            LoginState.Loading -> CenteredProgress(t.text("login-fetching"))
-            is LoginState.Browser -> BrowserLogin(t, login, viewModel::showManualLogin)
-            is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin)
-            is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)))
-            is LoginState.LoggedIn -> AnimatedContent(
-                targetState = showHistory,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
-                        slideInVertically(animationSpec = tween(240)) { height -> height / 16 }) togetherWith
-                        fadeOut(animationSpec = tween(90))
-                },
-                label = "lookup history",
-            ) { historyVisible ->
-                if (historyVisible) {
-                    HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
-                        viewModel.restoreHistory(record)
-                        showHistory = false
-                    }) { showHistory = false }
-                } else {
-                    LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout) { copyToClipboard(context, it) }
+    when (appMode) {
+        AppMode.SMARTPHONE_FLASH -> SmartphoneFlashPlaceholder(t, context, appMode) { appMode = it }
+        AppMode.FIRMWARE_LOOKUP -> AnimatedContent(
+            targetState = state.login,
+            contentKey = { it::class },
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(220, delayMillis = 60)) +
+                    slideInVertically(animationSpec = tween(280)) { height -> height / 12 }) togetherWith
+                    fadeOut(animationSpec = tween(90))
+            },
+            label = "login state",
+        ) { login ->
+            when (login) {
+                LoginState.LoggedOut -> LoginStart(t, context, viewModel::startLogin, { viewModel.startLogin(manual = true) }, (state.lookupStatus as? LookupStatus.Error)?.message, appMode) { appMode = it }
+                LoginState.Loading -> CenteredProgress(t.text("login-fetching")) { AppModeMenu(t, appMode) { appMode = it } }
+                is LoginState.Browser -> BrowserLogin(t, login, viewModel::showManualLogin, appMode) { appMode = it }
+                is LoginState.Manual -> ManualLogin(t, login.url, login.notice, { copyToClipboard(context, login.url) }, { openBrowser(context, login.url) }, viewModel::submitLoginCallback, viewModel::cancelLogin, appMode) { appMode = it }
+                is LoginState.Error -> LoginStart(t, context, { viewModel.startLogin() }, { viewModel.startLogin(true) }, t.text("login-error", "error" to t.error(login.message)), appMode) { appMode = it }
+                is LoginState.LoggedIn -> AnimatedContent(
+                    targetState = showHistory,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(180, delayMillis = 40)) +
+                            slideInVertically(animationSpec = tween(240)) { height -> height / 16 }) togetherWith
+                            fadeOut(animationSpec = tween(90))
+                    },
+                    label = "lookup history",
+                ) { historyVisible ->
+                    if (historyVisible) {
+                        HistoryScreen(t, state.history, viewModel::removeHistory, { record ->
+                            viewModel.restoreHistory(record)
+                            showHistory = false
+                        }, appMode, { appMode = it }) { showHistory = false }
+                    } else {
+                        LookupScreen(t, context, state, viewModel::selectMode, viewModel::updateRowImei, viewModel::updateRetcn, viewModel::updateTabletSerialNumber, viewModel::updateModelName, viewModel::updateModel, viewModel::selectModelCategory, viewModel::lookup, { showHistory = true }, viewModel::logout, appMode, { appMode = it }) { copyToClipboard(context, it) }
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LoginStart(t: Translator, context: Context, onLogin: () -> Unit, onManual: () -> Unit, message: String?) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        LanguageMenu(context)
-        Spacer(Modifier.height(24.dp))
-        Text(t.text("mode-1"), style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(12.dp)); Text(t.text("login-prompt"), style = MaterialTheme.typography.bodyLarge)
-        if (message != null) { Spacer(Modifier.height(12.dp)); ErrorText(t.error(message)) }
-        Spacer(Modifier.height(24.dp)); Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-button")) }
-        Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = onManual, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-manual")) }
+private fun LoginStart(
+    t: Translator,
+    context: Context,
+    onLogin: () -> Unit,
+    onManual: () -> Unit,
+    message: String?,
+    appMode: AppMode,
+    onAppModeSelected: (AppMode) -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(t.text("mode-1")) },
+                navigationIcon = { AppModeMenu(t, appMode, onAppModeSelected) },
+                actions = { LanguageMenu(context) },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(t.text("login-prompt"), style = MaterialTheme.typography.bodyLarge)
+            if (message != null) { Spacer(Modifier.height(12.dp)); ErrorText(t.error(message)) }
+            Spacer(Modifier.height(24.dp)); Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-button")) }
+            Spacer(Modifier.height(8.dp)); OutlinedButton(onClick = onManual, modifier = Modifier.fillMaxWidth()) { Text(t.text("login-manual")) }
+        }
     }
 }
 
@@ -271,22 +297,53 @@ private fun LanguageMenu(context: Context) {
     }
 }
 
-@Composable private fun CenteredProgress(label: String) = Column(Modifier.fillMaxSize().safeDrawingPadding(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)); Text(label) }
+@Composable
+private fun CenteredProgress(label: String, navigation: @Composable (() -> Unit)? = null) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+        if (navigation != null) Row(Modifier.fillMaxWidth()) { navigation() }
+        Column(
+            modifier = Modifier.fillMaxSize().weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(16.dp))
+            Text(label)
+        }
+    }
+}
 
 @Composable
-private fun BrowserLogin(t: Translator, login: LoginState.Browser, onBrowserOpened: () -> Unit) {
+private fun BrowserLogin(
+    t: Translator,
+    login: LoginState.Browser,
+    onBrowserOpened: () -> Unit,
+    appMode: AppMode,
+    onAppModeSelected: (AppMode) -> Unit,
+) {
     val context = LocalContext.current
     LaunchedEffect(login.url, login.expectedState) {
         openBrowser(context, login.url)
         onBrowserOpened()
     }
-    CenteredProgress(t.text("login-fetching"))
+    CenteredProgress(t.text("login-fetching")) { AppModeMenu(t, appMode, onAppModeSelected) }
 }
 
 @Composable
-private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () -> Unit, onBrowser: () -> Unit, onSubmit: (String) -> Unit, onCancel: () -> Unit) {
+private fun ManualLogin(
+    t: Translator,
+    url: String,
+    notice: String?,
+    onCopy: () -> Unit,
+    onBrowser: () -> Unit,
+    onSubmit: (String) -> Unit,
+    onCancel: () -> Unit,
+    appMode: AppMode,
+    onAppModeSelected: (AppMode) -> Unit,
+) {
     var callback by remember(url) { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { AppModeMenu(t, appMode, onAppModeSelected) }
         item { Text(t.text("login-manual-prompt"), style = MaterialTheme.typography.titleLarge) }
         if (notice != null) item { Text(t.error(notice), style = MaterialTheme.typography.bodyMedium) }
         item { Text(t.text("login-url-label"), fontWeight = FontWeight.SemiBold) }; item { Text(url, style = MaterialTheme.typography.bodySmall, maxLines = 5, overflow = TextOverflow.Ellipsis) }
@@ -298,14 +355,14 @@ private fun ManualLogin(t: Translator, url: String, notice: String?, onCopy: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onShowHistory: () -> Unit, onLogout: () -> Unit, onCopy: (String) -> Unit) {
+private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState, onMode: (LookupMode) -> Unit, onImei: (String) -> Unit, onRetcn: ((com.hikaricalyx.lmnflash.firmware.RetcnForm) -> com.hikaricalyx.lmnflash.firmware.RetcnForm) -> Unit, onTablet: (String) -> Unit, onModelName: (String) -> Unit, onModel: ((com.hikaricalyx.lmnflash.firmware.ModelForm) -> com.hikaricalyx.lmnflash.firmware.ModelForm) -> Unit, onCategory: (DeviceCategory) -> Unit, onLookup: () -> Unit, onShowHistory: () -> Unit, onLogout: () -> Unit, appMode: AppMode, onAppModeSelected: (AppMode) -> Unit, onCopy: (String) -> Unit) {
     val loading = state.lookupStatus is LookupStatus.Loading
     val lookupEnabled = !loading && when (state.mode) {
         LookupMode.ROW_SMARTPHONE -> isValidImei(state.rowImei)
         LookupMode.RETCN_SMARTPHONE -> isValidImei(state.retcn.imei)
         LookupMode.TABLET, LookupMode.BY_MODEL -> true
     }
-    Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, actions = { HistoryButton(t, onShowHistory); LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(t.text("mode-1")) }, navigationIcon = { AppModeMenu(t, appMode, onAppModeSelected) }, actions = { HistoryButton(t, onShowHistory); LanguageMenu(context); TextButton(onClick = onLogout) { Text(t.text("logout")) } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { ModeMenu(t, state.mode, !loading, onMode) }
             item(key = "lookup-form") {
@@ -349,6 +406,63 @@ private fun LookupScreen(t: Translator, context: Context, state: FirmwareUiState
                 ) { status -> LookupStatusView(t, status, onCopy) }
             }
             item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun AppModeMenu(t: Translator, selectedMode: AppMode, onModeSelected: (AppMode) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    IconButton(onClick = { expanded = true }) {
+        Icon(
+            painter = painterResource(R.drawable.ic_menu),
+            contentDescription = t.text("navigation-menu"),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        AppMode.entries.forEach { mode ->
+            DropdownMenuItem(
+                text = { Text(t.text(mode.translationKey)) },
+                onClick = {
+                    onModeSelected(mode)
+                    expanded = false
+                },
+                enabled = mode != selectedMode,
+            )
+        }
+    }
+}
+
+private val AppMode.translationKey: String
+    get() = when (this) {
+        AppMode.FIRMWARE_LOOKUP -> "mode-1"
+        AppMode.SMARTPHONE_FLASH -> "mode-2"
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SmartphoneFlashPlaceholder(
+    t: Translator,
+    context: Context,
+    selectedMode: AppMode,
+    onModeSelected: (AppMode) -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(t.text("mode-2")) },
+                navigationIcon = { AppModeMenu(t, selectedMode, onModeSelected) },
+                actions = { LanguageMenu(context) },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(t.text("smartphone-flash-placeholder"), style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
@@ -551,7 +665,15 @@ private fun HistoryButton(t: Translator, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onRemove: (Set<String>) -> Unit, onRestore: (LookupHistoryRecord) -> Unit, onBack: () -> Unit) {
+private fun HistoryScreen(
+    t: Translator,
+    history: List<LookupHistoryRecord>,
+    onRemove: (Set<String>) -> Unit,
+    onRestore: (LookupHistoryRecord) -> Unit,
+    appMode: AppMode,
+    onAppModeSelected: (AppMode) -> Unit,
+    onBack: () -> Unit,
+) {
     var managing by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -563,6 +685,7 @@ private fun HistoryScreen(t: Translator, history: List<LookupHistoryRecord>, onR
         topBar = {
             TopAppBar(
                 title = { Text(t.text("history-title")) },
+                navigationIcon = { AppModeMenu(t, appMode, onAppModeSelected) },
                 actions = {
                     AnimatedContent(targetState = managing, label = "history actions") { isManaging ->
                         if (isManaging) {

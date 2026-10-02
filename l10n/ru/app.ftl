@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = Поиск прошивки
 mode-2 = Прошивка смартфона
 mode-3 = Расшифровка прошивки
+navigation-menu = Меню навигации
+smartphone-flash-placeholder = Прошивка смартфона будет доступна в будущем обновлении.
 
 flash-bootloader-title = Разблокировка загрузчика
 flash-bootloader-button = Разблокировать загрузчик

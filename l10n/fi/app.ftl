@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = Firmwarehaku
 mode-2 = Älypuhelimen flashaus
 mode-3 = Firmwaren salauksen purku
+navigation-menu = Navigointivalikko
+smartphone-flash-placeholder = Älypuhelimen flashaus on saatavilla tulevassa päivityksessä.
 
 flash-bootloader-title = Bootloaderin lukituksen avaus
 flash-bootloader-button = Avaa bootloaderin lukitus

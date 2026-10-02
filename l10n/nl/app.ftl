@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = Firmware zoeken
 mode-2 = Smartphone flashen
 mode-3 = Firmware ontsleutelen
+navigation-menu = Navigatiemenu
+smartphone-flash-placeholder = Smartphone flashen wordt beschikbaar in een toekomstige update.
 
 flash-bootloader-title = Bootloader ontgrendelen
 flash-bootloader-button = Ontgrendel de bootloader

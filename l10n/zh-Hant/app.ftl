@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = 韌體查詢
 mode-2 = 智慧型手機刷寫
 mode-3 = 韌體解密
+navigation-menu = 導覽選單
+smartphone-flash-placeholder = 智慧型手機刷寫功能將在未來版本推出。
 
 flash-bootloader-title = Bootloader 解鎖
 flash-bootloader-button = 解鎖

@@ -4,6 +4,8 @@ app-title = LMN Flash
 mode-1 = Ricerca firmware
 mode-2 = Flash dello smartphone
 mode-3 = Decifratura firmware
+navigation-menu = Menu di navigazione
+smartphone-flash-placeholder = Il flash dello smartphone sarà disponibile in un prossimo aggiornamento.
 
 flash-bootloader-title = Sblocco del bootloader
 flash-bootloader-button = Sblocca il bootloader
