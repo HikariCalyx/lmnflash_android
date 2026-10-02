@@ -19,6 +19,14 @@ retcn-read-adb-usb = 透過 USB 偵錯使用 ADB
 retcn-read-adb-wireless = 透過無線偵錯使用 ADB
 retcn-fill-fastboot-permission = 正在等待 USB 授權…
 retcn-fill-fastboot-not-motorola = 已連接的 Fastboot 裝置不是受支援的 Motorola 裝置
+fastboot-error-permission-denied = USB 授權被拒絕
+fastboot-error-permission-timeout = USB 授權請求逾時
+fastboot-error-transport = Fastboot USB 通訊失敗
+fastboot-error-command-timeout = Fastboot 指令等待回應逾時
+fastboot-error-unexpected-response = 非預期的 Fastboot 回應：{ $header }
+fastboot-error-unlock-data-unavailable = 裝置未回傳解鎖資料
+fastboot-error-unlock-data-empty = 裝置回傳了空白的解鎖資料
+fastboot-error-operation = Fastboot 操作失敗
 flash-bootloader-android-transport-unavailable = Android 應用程式尚不支援 Fastboot 指令。請使用電腦讀取 Device ID 並完成解鎖。
 flash-bootloader-button = 解鎖
 

@@ -19,6 +19,14 @@ retcn-read-adb-usb = ADB через отладку по USB
 retcn-read-adb-wireless = ADB через беспроводную отладку
 retcn-fill-fastboot-permission = Ожидание разрешения USB…
 retcn-fill-fastboot-not-motorola = Подключённое Fastboot-устройство не является поддерживаемым устройством Motorola
+fastboot-error-permission-denied = Разрешение USB отклонено
+fastboot-error-permission-timeout = Превышено время ожидания запроса разрешения USB
+fastboot-error-transport = Сбой USB-соединения Fastboot
+fastboot-error-command-timeout = Истекло время ожидания ответа на команду Fastboot
+fastboot-error-unexpected-response = Непредвиденный ответ Fastboot: { $header }
+fastboot-error-unlock-data-unavailable = Устройство не вернуло данные разблокировки
+fastboot-error-unlock-data-empty = Устройство вернуло пустые данные разблокировки
+fastboot-error-operation = Сбой операции Fastboot
 flash-bootloader-android-transport-unavailable = Команды Fastboot пока недоступны в приложении Android. Используйте компьютер, чтобы получить Device ID и завершить разблокировку.
 flash-bootloader-button = Разблокировать загрузчик
 

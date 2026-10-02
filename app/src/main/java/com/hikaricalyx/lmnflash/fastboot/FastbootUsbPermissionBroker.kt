@@ -14,14 +14,15 @@ private const val FASTBOOT_USB_PERMISSION_ACTION = "com.hikaricalyx.lmnflash.USB
 
 /** Application-scoped USB-permission receiver shared by every Fastboot feature. */
 object FastbootUsbPermissionBroker {
-    private val pendingCallbacks = mutableMapOf<String, (Boolean) -> Unit>()
+    private val pendingCallbacks = mutableMapOf<String, MutableList<(Boolean) -> Unit>>()
     private var initialized = false
 
     fun request(context: Context, device: UsbDevice, onResult: (Boolean) -> Unit) {
         val appContext = context.applicationContext
         ensureInitialized(appContext)
-        pendingCallbacks[device.deviceName] = onResult
-        val intent = Intent(FASTBOOT_USB_PERMISSION_ACTION)
+        pendingCallbacks.getOrPut(device.deviceName) { mutableListOf() }.add(onResult)
+        // Scope the result broadcast to this app; the receiver is registered before this call.
+        val intent = Intent(FASTBOOT_USB_PERMISSION_ACTION).setPackage(appContext.packageName)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val permissionIntent = PendingIntent.getBroadcast(appContext, device.deviceId, intent, flags)
         appContext.getSystemService(UsbManager::class.java).requestPermission(device, permissionIntent)
@@ -46,9 +47,9 @@ object FastbootUsbPermissionBroker {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != FASTBOOT_USB_PERMISSION_ACTION) return
             val device = intent.usbDevice() ?: return
-            pendingCallbacks.remove(device.deviceName)?.invoke(
-                intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false),
-            )
+            pendingCallbacks.remove(device.deviceName)?.forEach { callback ->
+                callback(intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false))
+            }
         }
     }
 }

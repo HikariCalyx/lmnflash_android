@@ -19,6 +19,14 @@ retcn-read-adb-usb = ADB via USB-foutopsporing
 retcn-read-adb-wireless = ADB via draadloze foutopsporing
 retcn-fill-fastboot-permission = Wachten op USB-toestemming…
 retcn-fill-fastboot-not-motorola = Het aangesloten Fastboot-apparaat is geen ondersteund Motorola-apparaat
+fastboot-error-permission-denied = USB-toestemming is geweigerd
+fastboot-error-permission-timeout = Time-out voor USB-toestemmingsverzoek
+fastboot-error-transport = Fastboot USB-communicatie mislukt
+fastboot-error-command-timeout = Time-out tijdens het wachten op een antwoord van de Fastboot-opdracht
+fastboot-error-unexpected-response = Onverwachte Fastboot-reactie: { $header }
+fastboot-error-unlock-data-unavailable = Het apparaat heeft geen ontgrendelingsgegevens teruggegeven
+fastboot-error-unlock-data-empty = Het apparaat heeft lege ontgrendelingsgegevens teruggegeven
+fastboot-error-operation = Fastboot-bewerking mislukt
 flash-bootloader-android-transport-unavailable = Fastboot-opdrachten zijn nog niet beschikbaar in de Android-app. Gebruik een computer om de Device ID te lezen en het ontgrendelen te voltooien.
 flash-bootloader-button = Ontgrendel de bootloader
 

@@ -45,17 +45,53 @@ class Translator private constructor(private val messages: Map<String, String>) 
         return value
     }
 
-    fun error(message: String): String = when (message) {
-        "IMEI must contain digits only" -> text("imei-error-digits")
-        "IMEI must be 14 or 15 digits" -> text("imei-error-length")
-        "IMEI checksum is invalid" -> text("imei-error-checksum")
-        "XT model code is required" -> text("retcn-error-model")
-        "Build fingerprint is required" -> text("retcn-error-fingerprint")
-        "Carrier is required" -> text("retcn-error-carrier")
-        "Serial number is required" -> text("retcn-error-sn")
-        "FSG version is required for Qualcomm" -> text("retcn-error-fsg")
-        "Model name is required" -> text("by-model-error-required")
-        "Log in to look up firmware" -> text("login-prompt")
+    fun error(message: String): String = when {
+        message == "IMEI must contain digits only" -> text("imei-error-digits")
+        message == "IMEI must be 14 or 15 digits" -> text("imei-error-length")
+        message == "IMEI checksum is invalid" -> text("imei-error-checksum")
+        message == "XT model code is required" -> text("retcn-error-model")
+        message == "Build fingerprint is required" -> text("retcn-error-fingerprint")
+        message == "Carrier is required" -> text("retcn-error-carrier")
+        message == "Serial number is required" -> text("retcn-error-sn")
+        message == "FSG version is required for Qualcomm" -> text("retcn-error-fsg")
+        message == "Model name is required" -> text("by-model-error-required")
+        message == "Log in to look up firmware" -> text("login-prompt")
+        message == "Enter the unlock key first." -> text("flash-bootloader-key-required")
+        message == "Turn on \"OEM unlocking\" in Developer Options, then try again." -> text("flash-bootloader-oem-unlocking-required")
+        message == "Bootloader unlock request has been cancelled." -> text("flash-bootloader-unlock-cancelled")
+        message == "Bootloader unlock failed due to wrong unlock key." -> text("flash-bootloader-unlock-wrong-key")
+        message == "No fastboot device connected" -> text("retcn-fill-fastboot-no-device")
+        message == "No ADB device connected" -> text("adb-error-no-device")
+        message.startsWith("ADB authorization was not granted") -> text("adb-error-authorization")
+        message == "ADB shell command timed out" -> text("adb-error-command-timeout")
+        message == "ADB authentication protocol failed" || message == "Unexpected ADB response during authentication" -> text("adb-error-authentication")
+        message == "No supported Motorola device found" -> text("retcn-fill-fastboot-not-motorola")
+        message == "USB permission was denied." -> text("fastboot-error-permission-denied")
+        message == "USB permission request timed out." -> text("fastboot-error-permission-timeout")
+        message in setOf(
+            "ADB USB endpoints were not found",
+            "Unable to open the ADB USB device",
+            "Unable to claim the ADB USB interface",
+            "ADB USB write timed out",
+            "ADB USB read timed out",
+            "Invalid ADB packet header",
+            "Invalid ADB packet size",
+            "Invalid ADB packet checksum",
+        ) -> text("adb-error-transport")
+        message in setOf(
+            "Fastboot USB endpoints were not found",
+            "Unable to open the Fastboot USB device",
+            "Unable to claim the Fastboot USB interface",
+            "Fastboot command returned too many response packets",
+            "Fastboot USB write timed out",
+            "Fastboot USB read timed out",
+            "Short Fastboot response",
+        ) -> text("fastboot-error-transport")
+        message == "Fastboot command timed out waiting for a response" -> text("fastboot-error-command-timeout")
+        message.startsWith("Unexpected Fastboot response: ") -> text("fastboot-error-unexpected-response", "header" to message.substringAfter(": "))
+        message == "Failed to get unlock data: the device did not return its Device ID." -> text("fastboot-error-unlock-data-unavailable")
+        message == "No unlock data returned by the device." -> text("fastboot-error-unlock-data-empty")
+        message == "Fastboot operation failed" || message == "Unable to read device" -> text("fastboot-error-operation")
         else -> message
     }
 

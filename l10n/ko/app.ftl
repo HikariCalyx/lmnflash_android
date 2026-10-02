@@ -19,6 +19,14 @@ retcn-read-adb-usb = USB 디버깅을 통한 ADB
 retcn-read-adb-wireless = 무선 디버깅을 통한 ADB
 retcn-fill-fastboot-permission = USB 권한을 기다리는 중…
 retcn-fill-fastboot-not-motorola = 연결된 Fastboot 기기는 지원되는 Motorola 기기가 아닙니다
+fastboot-error-permission-denied = USB 권한이 거부되었습니다
+fastboot-error-permission-timeout = USB 권한 요청 시간이 초과되었습니다
+fastboot-error-transport = Fastboot USB 통신에 실패했습니다
+fastboot-error-command-timeout = Fastboot 명령이 응답을 기다리다가 시간 초과되었습니다
+fastboot-error-unexpected-response = 예상하지 못한 Fastboot 응답: { $header }
+fastboot-error-unlock-data-unavailable = 기기가 잠금 해제 데이터를 반환하지 않았습니다
+fastboot-error-unlock-data-empty = 기기가 빈 잠금 해제 데이터를 반환했습니다
+fastboot-error-operation = Fastboot 작업에 실패했습니다
 flash-bootloader-android-transport-unavailable = Android 앱에서는 아직 Fastboot 명령을 사용할 수 없습니다. 컴퓨터에서 Device ID를 읽고 잠금 해제를 완료하세요.
 flash-bootloader-button = 잠금 해제
 

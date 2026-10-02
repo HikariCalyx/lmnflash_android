@@ -19,6 +19,14 @@ retcn-read-adb-usb = USB デバッグ経由の ADB
 retcn-read-adb-wireless = ワイヤレス デバッグ経由の ADB
 retcn-fill-fastboot-permission = USB の許可を待機しています…
 retcn-fill-fastboot-not-motorola = 接続されている Fastboot 端末はサポート対象の Motorola 端末ではありません
+fastboot-error-permission-denied = USB の許可が拒否されました
+fastboot-error-permission-timeout = USB の許可リクエストがタイムアウトしました
+fastboot-error-transport = Fastboot の USB 通信に失敗しました
+fastboot-error-command-timeout = Fastboot コマンドの応答待機がタイムアウトしました
+fastboot-error-unexpected-response = 予期しない Fastboot 応答: { $header }
+fastboot-error-unlock-data-unavailable = 端末からロック解除データが返されませんでした
+fastboot-error-unlock-data-empty = 端末から空のロック解除データが返されました
+fastboot-error-operation = Fastboot 操作に失敗しました
 flash-bootloader-android-transport-unavailable = Android アプリでは Fastboot コマンドはまだ利用できません。Device ID の取得とロック解除の完了にはコンピューターを使用してください。
 flash-bootloader-button = ロックを解除
 

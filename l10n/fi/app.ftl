@@ -19,6 +19,14 @@ retcn-read-adb-usb = ADB USB-vianmäärityksen kautta
 retcn-read-adb-wireless = ADB langattoman vianmäärityksen kautta
 retcn-fill-fastboot-permission = Odotetaan USB-lupaa…
 retcn-fill-fastboot-not-motorola = Yhdistetty Fastboot-laite ei ole tuettu Motorola-laite
+fastboot-error-permission-denied = USB-lupa evättiin
+fastboot-error-permission-timeout = USB-lupapyynnön aikakatkaisu
+fastboot-error-transport = Fastbootin USB-yhteys epäonnistui
+fastboot-error-command-timeout = Fastboot-komennon vastausta odotettaessa tapahtui aikakatkaisu
+fastboot-error-unexpected-response = Odottamaton Fastboot-vastaus: { $header }
+fastboot-error-unlock-data-unavailable = Laite ei palauttanut lukituksen avauksen tietoja
+fastboot-error-unlock-data-empty = Laite palautti tyhjät lukituksen avauksen tiedot
+fastboot-error-operation = Fastboot-toiminto epäonnistui
 flash-bootloader-android-transport-unavailable = Fastboot-komennot eivät ole vielä käytettävissä Android-sovelluksessa. Käytä tietokonetta Device ID:n lukemiseen ja lukituksen avauksen viimeistelyyn.
 flash-bootloader-button = Avaa bootloaderin lukitus
 

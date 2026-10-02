@@ -19,7 +19,12 @@ private const val UNLOCK_TIMEOUT_MS = 90_000
 private const val MAX_RESPONSE_PACKETS = 256
 private const val FASTBOOT_PACKET_SIZE = 64
 
-data class FastbootCandidate(val device: UsbDevice, val interfaceIndex: Int, val label: String)
+data class FastbootCandidate(
+    val device: UsbDevice,
+    val interfaceIndex: Int,
+    val label: String,
+    val source: DeviceReadSource = DeviceReadSource.FASTBOOT,
+)
 
 data class RetcnDeviceInfo(
     val imei: String? = null,

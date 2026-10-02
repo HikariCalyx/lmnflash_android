@@ -19,6 +19,14 @@ retcn-read-adb-usb = ADB via USB-felsökning
 retcn-read-adb-wireless = ADB via trådlös felsökning
 retcn-fill-fastboot-permission = Väntar på USB-behörighet…
 retcn-fill-fastboot-not-motorola = Den anslutna Fastboot-enheten är inte en Motorola-enhet som stöds
+fastboot-error-permission-denied = USB-behörighet nekades
+fastboot-error-permission-timeout = Tidsgränsen för USB-behörighetsbegäran överskreds
+fastboot-error-transport = Fastboot USB-kommunikation misslyckades
+fastboot-error-command-timeout = Fastboot-kommandot fick tidsgräns medan det väntade på ett svar
+fastboot-error-unexpected-response = Oväntat Fastboot-svar: { $header }
+fastboot-error-unlock-data-unavailable = Enheten returnerade inga upplåsningsdata
+fastboot-error-unlock-data-empty = Enheten returnerade tomma upplåsningsdata
+fastboot-error-operation = Fastboot-åtgärden misslyckades
 flash-bootloader-android-transport-unavailable = Fastboot-kommandon är ännu inte tillgängliga i Android-appen. Använd en dator för att läsa Device ID och slutföra upplåsningen.
 flash-bootloader-button = Lås upp bootloader
 

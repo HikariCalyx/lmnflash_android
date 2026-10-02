@@ -83,6 +83,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hikaricalyx.lmnflash.fastboot.BootloaderStatus
 import com.hikaricalyx.lmnflash.fastboot.BootloaderUnlockViewModel
+import com.hikaricalyx.lmnflash.fastboot.DeviceReadSource
 import com.hikaricalyx.lmnflash.fastboot.FastbootPlatform
 import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadStatus
 import com.hikaricalyx.lmnflash.fastboot.RetcnDeviceReadViewModel
@@ -693,6 +694,7 @@ private fun RetcnForm(
     }
     val deviceReader: RetcnDeviceReadViewModel = viewModel(factory = factory)
     val readState = deviceReader.state
+    val adbUsbPermissionRequest = readState.status as? RetcnDeviceReadStatus.RequestingPermission
     var showConnectionChooser by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(readState.fillSequence) {
         if (readState.fillSequence > 0) readState.deviceInfo?.let { info ->
@@ -714,7 +716,10 @@ private fun RetcnForm(
             }
         }
     }
-    val reading = readState.status is RetcnDeviceReadStatus.RequestingPermission || readState.status is RetcnDeviceReadStatus.Reading
+    val reading = readState.status is RetcnDeviceReadStatus.RequestingPermission ||
+        readState.status is RetcnDeviceReadStatus.ConnectingToAdb ||
+        readState.status is RetcnDeviceReadStatus.WaitingForAdbAuthorization ||
+        readState.status is RetcnDeviceReadStatus.Reading
     val f = state.retcn
     OutlinedButton(onClick = { showConnectionChooser = true }, enabled = !reading, modifier = Modifier.fillMaxWidth()) {
         if (reading) {
@@ -724,6 +729,53 @@ private fun RetcnForm(
         Text(t.text("retcn-read-device"))
     }
     RetcnDeviceReadStatusView(t, readState.status)
+    if (adbUsbPermissionRequest?.source == DeviceReadSource.ADB_USB) {
+        AlertDialog(
+            onDismissRequest = deviceReader::cancelUsbPermission,
+            title = { Text(t.text("retcn-adb-usb-permission-title")) },
+            text = { Text(t.text("retcn-adb-usb-permission")) },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = deviceReader::cancelUsbPermission) { Text(t.text("login-cancel")) }
+            },
+        )
+    }
+    if (readState.status is RetcnDeviceReadStatus.AdbConnectionFailed) {
+        AlertDialog(
+            onDismissRequest = deviceReader::cancelAdbConnection,
+            title = { Text(t.text("adb-connection-failed-title")) },
+            text = {
+                Text(t.text("adb-connection-failed", "detail" to readState.status.detail))
+            },
+            confirmButton = {
+                TextButton(onClick = deviceReader::retryAdbConnection) { Text(t.text("adb-connection-retry")) }
+            },
+            dismissButton = {
+                TextButton(onClick = deviceReader::cancelAdbConnection) { Text(t.text("login-cancel")) }
+            },
+        )
+    }
+    if (readState.status is RetcnDeviceReadStatus.WaitingForAdbAuthorization) {
+        AlertDialog(
+            onDismissRequest = deviceReader::cancelAdbAuthorization,
+            title = { Text(t.text("retcn-adb-authorizing-title")) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(t.text("retcn-adb-authorizing"))
+                    Text(t.text("retcn-adb-retry-guidance"))
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = deviceReader::retryAdbAuthorization,
+                    enabled = readState.adbAuthorizationRetryAvailable,
+                ) { Text(t.text("retcn-adb-retry")) }
+            },
+            dismissButton = {
+                TextButton(onClick = deviceReader::cancelAdbAuthorization) { Text(t.text("login-cancel")) }
+            },
+        )
+    }
     Field(
         t.text("lookup-imei-label"),
         f.imei,
@@ -781,8 +833,10 @@ private fun RetcnForm(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(t.text("retcn-read-device-choose"))
                     Button(onClick = { showConnectionChooser = false; deviceReader.readFromFastboot() }, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-fill-fastboot")) }
-                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-usb")) }
-                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-wireless")) }
+                    if (BuildConfig.DEBUG) {
+                        Button(onClick = { showConnectionChooser = false; deviceReader.readFromAdbUsb() }, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-usb")) }
+                        Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(t.text("retcn-read-adb-wireless")) }
+                    }
                 }
             },
             confirmButton = {},
@@ -810,13 +864,19 @@ private fun RetcnForm(
 private fun RetcnDeviceReadStatusView(t: Translator, status: RetcnDeviceReadStatus) {
     when (status) {
         RetcnDeviceReadStatus.Idle -> Unit
-        RetcnDeviceReadStatus.RequestingPermission -> Text(t.text("retcn-fill-fastboot-permission"), style = MaterialTheme.typography.bodyMedium)
+        is RetcnDeviceReadStatus.RequestingPermission -> Text(
+            t.text(if (status.source == DeviceReadSource.ADB_USB) "retcn-adb-usb-permission" else "retcn-fill-fastboot-permission"),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        RetcnDeviceReadStatus.ConnectingToAdb -> Text(t.text("adb-connecting"), style = MaterialTheme.typography.bodyMedium)
+        RetcnDeviceReadStatus.WaitingForAdbAuthorization -> Text(t.text("retcn-adb-authorizing"), style = MaterialTheme.typography.bodyMedium)
+        is RetcnDeviceReadStatus.AdbConnectionFailed -> ErrorText(t.text("adb-connection-failed", "detail" to status.detail))
         RetcnDeviceReadStatus.Reading -> Text(t.text("retcn-fill-fastboot-fetching"), style = MaterialTheme.typography.bodyMedium)
         is RetcnDeviceReadStatus.Filled -> Text(t.text("retcn-fill-fastboot-filled", "serial" to status.serial), style = MaterialTheme.typography.bodyMedium)
         is RetcnDeviceReadStatus.Error -> when (status.message) {
             "No fastboot device connected" -> ErrorText(t.text("retcn-fill-fastboot-no-device"))
             "No supported Motorola device found" -> ErrorText(t.text("retcn-fill-fastboot-not-motorola"))
-            else -> ErrorText(status.message)
+            else -> ErrorText(t.error(status.message))
         }
     }
 }

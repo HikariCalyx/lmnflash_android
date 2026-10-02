@@ -19,6 +19,14 @@ retcn-read-adb-usb = ADB über USB-Debugging
 retcn-read-adb-wireless = ADB über Wireless-Debugging
 retcn-fill-fastboot-permission = Warte auf USB-Berechtigung…
 retcn-fill-fastboot-not-motorola = Das verbundene Fastboot-Gerät ist kein unterstütztes Motorola-Gerät
+fastboot-error-permission-denied = USB-Berechtigung wurde verweigert
+fastboot-error-permission-timeout = Zeitüberschreitung bei der USB-Berechtigungsanfrage
+fastboot-error-transport = Fastboot-USB-Kommunikation fehlgeschlagen
+fastboot-error-command-timeout = Fastboot-Befehl hat beim Warten auf eine Antwort eine Zeitüberschreitung erreicht
+fastboot-error-unexpected-response = Unerwartete Fastboot-Antwort: { $header }
+fastboot-error-unlock-data-unavailable = Das Gerät hat keine Entsperrdaten zurückgegeben
+fastboot-error-unlock-data-empty = Das Gerät hat leere Entsperrdaten zurückgegeben
+fastboot-error-operation = Fastboot-Vorgang fehlgeschlagen
 flash-bootloader-android-transport-unavailable = Fastboot-Befehle sind in der Android-App noch nicht verfügbar. Verwende einen Computer, um die Device ID zu lesen und die Entsperrung abzuschließen.
 flash-bootloader-button = Bootloader entsperren
 
