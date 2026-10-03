@@ -48,6 +48,7 @@ data class FirmwareFlashUiState(
     val customCommandImageUri: Uri? = null,
     val customCommandImageName: String? = null,
     val customCommandProgress: Pair<Long, Long>? = null,
+    val customCommandFlashPartition: String? = null,
     val customCommandWarning: Boolean = false,
     val customCommandWarningCountdown: Int = 0,
     val customCommandResponse: List<String> = emptyList(),
@@ -295,7 +296,15 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
         // Fastboot expects erase:<partition>; accept the natural "erase <partition>" spelling.
         val command = if (isErase) "erase:$partition" else normalized
         val id = ++operationId
-        state = state.copy(customCommandExecuting = true, customCommandWarning = false, customCommandWarningCountdown = 0, customCommandProgress = null, customCommandResponse = emptyList(), customCommandError = null)
+        state = state.copy(
+            customCommandExecuting = true,
+            customCommandFlashPartition = if (isFlash) partition else null,
+            customCommandWarning = false,
+            customCommandWarningCountdown = 0,
+            customCommandProgress = null,
+            customCommandResponse = emptyList(),
+            customCommandError = null,
+        )
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -313,9 +322,9 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
                     }
                 }
             }.onSuccess { response ->
-                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandProgress = null, customCommandResponse = response)
+                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandFlashPartition = null, customCommandProgress = null, customCommandResponse = response)
             }.onFailure { error ->
-                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandProgress = null, customCommandError = error.message ?: "Fastboot command failed")
+                if (id == operationId) state = state.copy(customCommandExecuting = false, customCommandFlashPartition = null, customCommandProgress = null, customCommandError = error.message ?: "Fastboot command failed")
             }
         }
     }
@@ -348,7 +357,7 @@ class FirmwareFlashViewModel(context: Context) : ViewModel() {
     fun clearCustomCommandOutput() {
         if (!state.customCommandExecuting) {
             pendingCustomCommand = null
-            state = state.copy(customCommandImageUri = null, customCommandImageName = null, customCommandProgress = null, customCommandWarning = false, customCommandWarningCountdown = 0, customCommandResponse = emptyList(), customCommandError = null)
+            state = state.copy(customCommandImageUri = null, customCommandImageName = null, customCommandProgress = null, customCommandFlashPartition = null, customCommandWarning = false, customCommandWarningCountdown = 0, customCommandResponse = emptyList(), customCommandError = null)
         }
     }
 

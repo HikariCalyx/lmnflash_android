@@ -220,6 +220,7 @@ firmware-flash-wait = 경고 읽기 ({ $seconds })
 firmware-flash-running = 펌웨어 플래시 중…
 firmware-flash-total-progress = 전체 진행률: { $current } / { $total }
 firmware-flash-current-operation = 현재 작업: { $label }
+firmware-flash-current-transfer = 현재 이미지 전송: { $percent }%
 firmware-flash-current-progress = 현재 작업 진행률
 firmware-flash-preparing = 펌웨어 플래시 준비 중…
 firmware-flash-no-cancel = 플래시는 취소할 수 없습니다. 완료될 때까지 USB 연결을 유지하세요.

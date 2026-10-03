@@ -202,6 +202,7 @@ firmware-flash-start = Flashen starten
 firmware-flash-running = Firmware flashen…
 firmware-flash-total-progress = Totale voortgang: { $current } van { $total }
 firmware-flash-current-operation = Huidige bewerking: { $label }
+firmware-flash-current-transfer = Huidige image-overdracht: { $percent }%
 firmware-flash-current-progress = Voortgang huidige bewerking
 firmware-flash-preparing = Firmwareflash voorbereiden…
 firmware-flash-no-cancel = Flashen kan niet worden geannuleerd. Houd USB verbonden tot het klaar is.

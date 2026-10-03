@@ -220,6 +220,7 @@ firmware-flash-wait = 閱讀警告（{ $seconds }）
 firmware-flash-running = 正在刷寫韌體…
 firmware-flash-total-progress = 總進度：{ $current } / { $total }
 firmware-flash-current-operation = 目前操作：{ $label }
+firmware-flash-current-transfer = 目前映像檔傳輸：{ $percent }%
 firmware-flash-current-progress = 目前操作進度
 firmware-flash-preparing = 正在準備刷寫韌體…
 firmware-flash-no-cancel = 無法取消刷寫。請保持 USB 連線直到完成。

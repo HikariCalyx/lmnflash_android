@@ -220,6 +220,7 @@ firmware-flash-wait = Warnung lesen ({ $seconds })
 firmware-flash-running = Firmware wird geflasht…
 firmware-flash-total-progress = Gesamtfortschritt: { $current } von { $total }
 firmware-flash-current-operation = Aktueller Vorgang: { $label }
+firmware-flash-current-transfer = Aktueller Image-Transfer: { $percent }%
 firmware-flash-current-progress = Fortschritt des aktuellen Vorgangs
 firmware-flash-preparing = Firmware-Flash wird vorbereitet…
 firmware-flash-no-cancel = Flashen kann nicht abgebrochen werden. Lass die USB-Verbindung bis zum Abschluss bestehen.

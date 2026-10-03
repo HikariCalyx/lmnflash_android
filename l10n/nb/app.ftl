@@ -202,6 +202,7 @@ firmware-flash-start = Start flashing
 firmware-flash-running = Flasher fastvare…
 firmware-flash-total-progress = Total fremdrift: { $current } av { $total }
 firmware-flash-current-operation = Gjeldende operasjon: { $label }
+firmware-flash-current-transfer = Gjeldende bildeoverføring: { $percent }%
 firmware-flash-current-progress = Fremdrift for gjeldende operasjon
 firmware-flash-preparing = Forbereder fastvareflash…
 firmware-flash-no-cancel = Flashing kan ikke avbrytes. Behold USB-tilkoblingen til den er ferdig.

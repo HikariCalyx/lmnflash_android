@@ -202,6 +202,7 @@ firmware-flash-start = Avvia flash
 firmware-flash-running = Flash del firmware in corso…
 firmware-flash-total-progress = Avanzamento totale: { $current } di { $total }
 firmware-flash-current-operation = Operazione corrente: { $label }
+firmware-flash-current-transfer = Trasferimento immagine corrente: { $percent }%
 firmware-flash-current-progress = Avanzamento operazione corrente
 firmware-flash-preparing = Preparazione flash firmware…
 firmware-flash-no-cancel = Il flash non può essere annullato. Mantieni la connessione USB fino al termine.

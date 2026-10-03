@@ -545,7 +545,7 @@ private fun SmartphoneFlashScreen(
     }
     val flashViewModel: FirmwareFlashViewModel = viewModel(factory = flashFactory)
     val flashState = flashViewModel.state
-    KeepScreenAwake(flashState.flashing)
+    KeepScreenAwake(flashState.flashing || flashState.customCommandFlashPartition != null)
     var page by rememberSaveable { mutableStateOf(SmartphoneFlashPage.HOME) }
     var burnInPreventionMode by rememberSaveable { mutableStateOf(false) }
     // An active run has its own chrome-free screen while the user remains in Firmware Flash.
@@ -886,7 +886,9 @@ private fun CustomFastbootCommandScreen(
     var command by rememberSaveable { mutableStateOf("") }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::setCustomCommandImage) }
     val flashCommand = command.trim().split(Regex("\\s+")).firstOrNull()?.equals("flash", true) == true
-    BackHandler(onBack = onReturn)
+    val flashPartition = state.customCommandFlashPartition
+    // A partition flash behaves like the firmware flashing screen: it gets its own progress view and no way out.
+    BackHandler(enabled = !state.customCommandExecuting, onBack = onReturn)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -897,47 +899,45 @@ private fun CustomFastbootCommandScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { Text(t.text("firmware-flash-custom-title"), style = MaterialTheme.typography.titleLarge) }
-        item { Text(t.text("firmware-flash-custom-instructions"), style = MaterialTheme.typography.bodyMedium) }
-        item { Text(t.text("firmware-flash-custom-flash-hint"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
-        item {
-            OutlinedTextField(
-                value = command,
-                onValueChange = { command = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(t.text("firmware-flash-custom-label")) },
-                placeholder = { Text("oem get_unlock_data") },
-                singleLine = true,
-            )
-        }
-        if (flashCommand) item {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = { imagePicker.launch(arrayOf("*/*")) },
-                    enabled = !state.customCommandExecuting,
+        if (flashPartition != null) {
+            item { CustomFlashProgress(t, flashPartition, state.customCommandProgress) }
+        } else {
+            item { Text(t.text("firmware-flash-custom-instructions"), style = MaterialTheme.typography.bodyMedium) }
+            item { Text(t.text("firmware-flash-custom-flash-hint"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
+            item {
+                OutlinedTextField(
+                    value = command,
+                    onValueChange = { command = it },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(t.text("firmware-flash-custom-select-image")) }
-                state.customCommandImageName?.let { name ->
-                    Text(t.text("firmware-flash-custom-image", "name" to name), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    label = { Text(t.text("firmware-flash-custom-label")) },
+                    placeholder = { Text("oem get_unlock_data") },
+                    singleLine = true,
+                )
+            }
+            if (flashCommand) item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { imagePicker.launch(arrayOf("*/*")) },
+                        enabled = !state.customCommandExecuting,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(t.text("firmware-flash-custom-select-image")) }
+                    state.customCommandImageName?.let { name ->
+                        Text(t.text("firmware-flash-custom-image", "name" to name), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
-        }
-        item {
-            Button(
-                onClick = { viewModel.executeCustomCommand(command) },
-                enabled = command.isNotBlank() && !state.customCommandExecuting,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(t.text(if (state.customCommandExecuting) "firmware-flash-custom-executing" else "firmware-flash-custom-execute")) }
-        }
-        if (state.customCommandExecuting) item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Button(
+                    onClick = { viewModel.executeCustomCommand(command) },
+                    enabled = command.isNotBlank() && !state.customCommandExecuting,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(t.text(if (state.customCommandExecuting) "firmware-flash-custom-executing" else "firmware-flash-custom-execute")) }
+            }
+            if (state.customCommandExecuting) item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.width(20.dp).height(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(t.text("firmware-flash-custom-executing"))
-                }
-                state.customCommandProgress?.let { (done, total) ->
-                    if (total > 0) LinearProgressIndicator(progress = { (done.toFloat() / total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -946,7 +946,6 @@ private fun CustomFastbootCommandScreen(
             item { Text(t.text("firmware-flash-custom-response"), style = MaterialTheme.typography.titleMedium) }
             item { LogTextBox(state.customCommandResponse.joinToString("\n"), Modifier.height(280.dp)) }
         }
-        item { OutlinedButton(onClick = onReturn, enabled = !state.customCommandExecuting, modifier = Modifier.fillMaxWidth()) { Text(t.text("firmware-flash-return")) } }
     }
     if (state.customCommandWarning) {
         AlertDialog(
@@ -960,6 +959,27 @@ private fun CustomFastbootCommandScreen(
             },
             dismissButton = { TextButton(onClick = viewModel::dismissCustomCommandWarning) { Text(t.text("login-cancel")) } },
         )
+    }
+}
+
+/** Shows the same transfer progress as the firmware flashing screen for a single-partition custom flash. */
+@Composable
+private fun CustomFlashProgress(
+    t: Translator,
+    partition: String,
+    progress: Pair<Long, Long>?,
+) {
+    val fraction = progress?.let { (done, total) -> if (total > 0) (done.toFloat() / total).coerceIn(0f, 1f) else null }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(t.text("firmware-flash-running"), style = MaterialTheme.typography.titleLarge)
+        Text(t.text("firmware-flash-current-operation", "label" to "flash $partition"), style = MaterialTheme.typography.bodyLarge)
+        Text(t.text("firmware-flash-current-transfer", "percent" to (fraction?.let { (it * 100).toInt() } ?: 0)), style = MaterialTheme.typography.bodyMedium)
+        if (fraction == null) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        }
+        Text(t.text("firmware-flash-no-cancel"), style = MaterialTheme.typography.bodySmall)
     }
 }
 

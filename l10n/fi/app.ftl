@@ -202,6 +202,7 @@ firmware-flash-start = Aloita flashaus
 firmware-flash-running = Flashataan laiteohjelmistoa…
 firmware-flash-total-progress = Kokonaisedistyminen: { $current } / { $total }
 firmware-flash-current-operation = Nykyinen toiminto: { $label }
+firmware-flash-current-transfer = Nykyisen levykuvan siirto: { $percent }%
 firmware-flash-current-progress = Nykyisen toiminnon edistyminen
 firmware-flash-preparing = Valmistellaan laiteohjelmiston flashausta…
 firmware-flash-no-cancel = Flashausta ei voi peruuttaa. Säilytä USB-yhteys loppuun asti.

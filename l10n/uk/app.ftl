@@ -202,6 +202,7 @@ firmware-flash-start = Почати прошивку
 firmware-flash-running = Прошивка триває…
 firmware-flash-total-progress = Загальний прогрес: { $current } з { $total }
 firmware-flash-current-operation = Поточна операція: { $label }
+firmware-flash-current-transfer = Поточна передача образу: { $percent }%
 firmware-flash-current-progress = Прогрес поточної операції
 firmware-flash-preparing = Підготовка до прошивки…
 firmware-flash-no-cancel = Прошивку неможливо скасувати. Не від’єднуйте USB до завершення.

@@ -202,6 +202,7 @@ firmware-flash-start = Start flash
 firmware-flash-running = Flasher firmware…
 firmware-flash-total-progress = Samlet status: { $current } af { $total }
 firmware-flash-current-operation = Aktuel handling: { $label }
+firmware-flash-current-transfer = Aktuel billedoverførsel: { $percent }%
 firmware-flash-current-progress = Status for aktuel handling
 firmware-flash-preparing = Forbereder firmwareflash…
 firmware-flash-no-cancel = Flash kan ikke annulleres. Behold USB-forbindelsen til den er færdig.

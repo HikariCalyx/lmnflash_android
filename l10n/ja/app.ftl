@@ -220,6 +220,7 @@ firmware-flash-wait = 警告を読む（{ $seconds }）
 firmware-flash-running = ファームウェアをフラッシュ中…
 firmware-flash-total-progress = 全体の進行状況: { $current } / { $total }
 firmware-flash-current-operation = 現在の操作: { $label }
+firmware-flash-current-transfer = 現在のイメージ転送: { $percent }%
 firmware-flash-current-progress = 現在の操作の進行状況
 firmware-flash-preparing = ファームウェアのフラッシュを準備中…
 firmware-flash-no-cancel = フラッシュはキャンセルできません。完了まで USB 接続を維持してください。
